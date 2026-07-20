@@ -236,15 +236,31 @@ const {useState, useEffect, useMemo, useRef} = React;
 
 /* ============================================================
    CONFIGURACIÓN DE CONEXIÓN
-   MODE 'demo'  → todo en memoria con datos de ejemplo (vista previa)
-   MODE 'sheets'→ cuando conectemos: pegar URL del Apps Script aquí
+   Pega aquí la URL de tu Apps Script (paso final de la guía de
+   conexión) y el sistema se conecta solo — mientras esté vacía,
+   sigue funcionando en modo demo con datos de ejemplo.
    ============================================================ */
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzlGPgMvw46rq-uLP3Hy5811hnDTSeSFO5azItzwISczO2edtA2V8FoZ8pBBNHMCe2KVw/exec';
+
 const API = {
-  MODE: 'demo',
-  URL: '', // URL del Web App de Google Apps Script (pendiente)
-  guardar(payload){
-    if(API.MODE === 'demo') return Promise.resolve({ok:true});
-    return fetch(API.URL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload)});
+  URL: APPS_SCRIPT_URL,
+  MODE: APPS_SCRIPT_URL ? 'sheets' : 'demo',
+  cargar(){
+    return fetch(API.URL, {method:'GET'}).then(r=>r.json());
+  },
+  guardarTodo(datos){
+    if(API.MODE!=='sheets') return Promise.resolve({ok:true});
+    return fetch(API.URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({accion:'guardarTodo', ...datos})
+    }).then(r=>r.json()).catch(()=>({ok:false}));
+  },
+  subirImagen(dataUrl, nombre){
+    if(API.MODE!=='sheets') return Promise.resolve(null);
+    return fetch(API.URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({accion:'subirImagen', nombre, datos:dataUrl})
+    }).then(r=>r.json()).then(d=>(d && d.url) ? d.url : null).catch(()=>null);
   }
 };
 
@@ -397,6 +413,13 @@ const leerImagen = (file, cb) => {
     img.src = e.target.result;
   };
   r.readAsDataURL(file);
+};
+
+/* Sube la miniatura a la carpeta de Drive (solo si hay Sheets conectado)
+   y reemplaza la vista previa local por la URL permanente cuando termina */
+const subirImagenAuto = (dataUrl, nombre, aplicarUrl) => {
+  if(API.MODE!=='sheets') return;
+  API.subirImagen(dataUrl, nombre).then(url=>{ if(url) aplicarUrl(url); });
 };
 
 /* ============================================================
@@ -568,7 +591,7 @@ function TabPedido({productos, materiales, temas, crearTema, clientes, setClient
   const [nuevoCliente, setNuevoCliente] = useState(false);
   const [nc, setNc] = useState({nombre:'', telefono:'', ciudad:'', comentarios:''});
 
-  const setItem = (id, patch) => setItems(items.map(i=>i.id===id?{...i,...patch}:i));
+  const setItem = (id, patch) => setItems(prev=>prev.map(i=>i.id===id?{...i,...patch}:i));
   const subtotal = items.reduce((s,i)=>{ const p=prodDe(i.prodId, productos); return s + (p?p.precio:0); },0);
   const total = destino==='stock' ? 0 : Math.round(subtotal * (1 - descuento/100));
   const cliente = clientes.find(c=>c.id===clienteId);
@@ -630,7 +653,7 @@ function TabPedido({productos, materiales, temas, crearTema, clientes, setClient
             <div key={it.id} className="prod-line">
               <label className="up-thumb" style={{marginBottom:0}}>
                 {it.imagen ? <img src={it.imagen} alt=""/> : 'Subir imagen'}
-                <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>setItem(it.id,{imagen:d})); }}/>
+                <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>{ setItem(it.id,{imagen:d}); subirImagenAuto(d, 'pedido_'+it.id, url=>setItem(it.id,{imagen:url})); }); }}/>
               </label>
               <div className="prod-line-campos">
                 <div>
@@ -679,7 +702,7 @@ function TabPedido({productos, materiales, temas, crearTema, clientes, setClient
               <label>Guía de envío (foto o captura)</label>
               <label className="up-thumb" style={{width:'100%', height:90}}>
                 {envio.guia ? <img src={envio.guia} alt=""/> : 'Subir guía — también se puede cargar después desde el flujo'}
-                <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>setEnvio({...envio, guia:d})); }}/>
+                <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>{ setEnvio(prev=>({...prev, guia:d})); subirImagenAuto(d, 'guia_temp_'+uid(), url=>setEnvio(prev=>({...prev, guia:url}))); }); }}/>
               </label>
             </div>
           </div>}
@@ -734,6 +757,9 @@ function TabFlujo({pedidos, setPedidos, clientes, productos, temas, cobrarYEntre
   const subirGuia = (p, data) => {
     setPedidos(pedidos.map(x=>x.id!==p.id?x:{...x, envio:{...x.envio, guia:data}}));
     avisar('Guía guardada en el pedido <b>#'+p.folio+'</b>');
+    subirImagenAuto(data, 'guia_'+p.folio, url=>{
+      setPedidos(prev=>prev.map(x=>x.id!==p.id?x:{...x, envio:{...x.envio, guia:url}}));
+    });
   };
 
   return (
@@ -1845,8 +1871,44 @@ function App(){
   const [editar, setEditar] = useState(null);
   const [entregando, setEntregando] = useState(null);
   const [toast, setToast] = useState('');
+  const [listo, setListo] = useState(API.MODE!=='sheets');
+  const [cargando, setCargando] = useState(API.MODE==='sheets');
   const avisar = m => { setToast(m); setTimeout(()=>setToast(''), 2600); };
   const crearTema = nombre => { const t = {id:uid(), nombre}; setTemas(prev=>[...prev, t]); return t.id; };
+
+  // Carga inicial desde Google Sheets (si está conectado)
+  useEffect(()=>{
+    if(API.MODE!=='sheets') return;
+    API.cargar().then(datos=>{
+      const vacio = !datos.usuarios || datos.usuarios.length===0;
+      if(vacio){
+        // Primera vez: sembramos catálogo base para que el login y las bases funcionen de inmediato
+        setUsuarios(USUARIOS_INI); setProductos(PRODUCTOS_INI); setMateriales(MATERIALES_INI);
+        setTemas(TEMAS_INI); setCatGastos(CAT_GASTOS_INI);
+        setPedidos([]); setVentas([]); setGastos([]); setStock([]); setClientes([]); setFolio(101);
+        API.guardarTodo({usuarios:USUARIOS_INI, productos:PRODUCTOS_INI, materiales:MATERIALES_INI, temas:TEMAS_INI, catGastos:CAT_GASTOS_INI, pedidos:[], ventas:[], gastos:[], stock:[], clientes:[], folio:101});
+      } else {
+        setUsuarios(datos.usuarios); setProductos(datos.productos); setMateriales(datos.materiales);
+        setTemas(datos.temas); setCatGastos(datos.catGastos && datos.catGastos.length ? datos.catGastos : CAT_GASTOS_INI);
+        setPedidos(datos.pedidos||[]); setVentas(datos.ventas||[]); setGastos(datos.gastos||[]);
+        setStock(datos.stock||[]); setClientes(datos.clientes||[]); setFolio(datos.folio || 101);
+      }
+      setListo(true); setCargando(false);
+    }).catch(()=>{
+      avisar('No se pudo conectar con Google Sheets — revisa la URL del Apps Script');
+      setListo(true); setCargando(false);
+    });
+  }, []);
+
+  // Autoguardado: 2.5s después del último cambio, se sube todo el estado a Sheets
+  useEffect(()=>{
+    if(!listo || API.MODE!=='sheets') return;
+    const t = setTimeout(()=>{
+      API.guardarTodo({usuarios, productos, materiales, temas, catGastos, pedidos, ventas, gastos, stock, clientes, folio})
+        .then(r=>{ if(r && r.ok===false) avisar('No se pudo guardar en Sheets, se reintentará'); });
+    }, 2500);
+    return ()=>clearTimeout(t);
+  }, [usuarios, productos, materiales, temas, catGastos, pedidos, ventas, gastos, stock, clientes, folio, listo]);
 
   const crearPedido = (datos, edit) => {
     if(edit){
@@ -1856,7 +1918,6 @@ function App(){
       }));
       avisar('Pedido <b>#'+edit.folio+'</b> actualizado');
       setTab('flujo');
-      API.guardar({accion:'editarPedido', folio:edit.folio, datos});
       return;
     }
     const nuevo = {
@@ -1867,7 +1928,6 @@ function App(){
     setFolio(folio+1);
     avisar((datos.destino==='stock'?'Producción para stock':'Pedido')+' <b>#'+folio+'</b> creado');
     setTab('flujo');
-    API.guardar({accion:'nuevoPedido', pedido:nuevo});
   };
 
   const editarPedido = p => { setEditar(p); setTab('pedido'); };
@@ -1883,7 +1943,6 @@ function App(){
     }));
     setEntregando(null);
     avisar('Pedido <b>#'+p.folio+'</b> entregado'+(resta>0?' · cobrado '+dinero(resta):''));
-    API.guardar({accion:'entregar', folio:p.folio, metodo, cobrado:resta});
   };
 
   const terminarStock = p => {
@@ -1897,7 +1956,6 @@ function App(){
     setStock(nuevoStock);
     setPedidos(pedidos.map(x=>x.id!==p.id?x:{...x, estado:'entregado', fechaEntregado:hoyISO()}));
     avisar('<b>'+p.items.length+' piezas</b> sumadas al inventario');
-    API.guardar({accion:'stockProducido', folio:p.folio});
   };
 
   const venderStock = (carrito, total, descuento, metodo) => {
@@ -1908,8 +1966,16 @@ function App(){
     const venta = {id:uid(), fecha:hoyISO(), items:carrito.map(c=>({prodId:c.prodId, temaId:c.temaId, cantidad:c.cantidad, precio:c.precio})), total, descuento, metodo};
     setVentas([venta, ...ventas]);
     avisar('Venta de <b>'+dinero(total)+'</b> registrada · '+metodo);
-    API.guardar({accion:'ventaPos', venta});
   };
+
+  if(cargando) return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <img className="marca-img marca-img-login" src={LOGO_URI} alt="FANATICARTE"/>
+        <div className="login-sub">Conectando con Google Sheets…</div>
+      </div>
+    </div>
+  );
 
   if(!usuario) return <Login usuarios={usuarios} onEntrar={u=>{setUsuario(u); setTab(u.modulos[0]||'hoy');}}/>;
 
@@ -1921,7 +1987,7 @@ function App(){
       <div className="topbar">
         <img className="marca-img marca-img-top" src={LOGO_URI} alt="FANATICARTE"/>
         <div className="topbar-right">
-          {API.MODE==='demo' && <span className="demo-flag">Demo</span>}
+          {API.MODE==='demo' ? <span className="demo-flag">Demo</span> : <span className="demo-flag" style={{background:'var(--verde-suave)', color:'var(--verde)'}}>Sheets conectado</span>}
           <div className="chip-user"><div className="avatar">{usuario.nombre.slice(0,2).toUpperCase()}</div><span>{usuario.nombre}</span></div>
           <button className="btn-salir" onClick={()=>setUsuario(null)}>Salir</button>
         </div>
