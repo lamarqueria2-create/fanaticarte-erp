@@ -399,24 +399,32 @@ const GASTOS_INI = [
 /* ============================================================
    HELPERS DE NEGOCIO
    ============================================================ */
-/* Costo de un material dentro de un producto, según su unidad:
-   - m²    → (alto×ancho/10000) × costo   [área exacta en m²]
-   - metro → (2×(alto+ancho)/100) × costo × cant  [perímetro en m × nº de vueltas]
-   - pza   → cant × costo                 [cantidad fija, no depende de medida]
-   Para 'metro', 'cant' representa cuántos perímetros lleva (normalmente 1).
-   Para 'pza', 'cant' es el número de piezas. */
+/* Costo de un material dentro de un producto, según su unidad.
+   Las medidas del producto (alto, ancho) se capturan en CENTÍMETROS.
+   - m²    → área del cuadro:  (alto × ancho) / 10000  →  m²  ×  costo por m²
+   - metro → los 4 lados del marco: (alto + ancho) × 2  →  /100  →  metros  ×  costo por metro
+   - pza   → cantidad fija capturada (no depende de la medida)  ×  costo por pieza */
 const costoMaterialEnProducto = (mat, cant, alto, ancho) => {
   if(!mat) return 0;
-  const A = Number(alto)||0, W = Number(ancho)||0, c = Number(cant)||0, precio = Number(mat.costo)||0;
+  const A = Number(alto)||0, W = Number(ancho)||0, precio = Number(mat.costo)||0;
   if(mat.unidad === 'm²'){
-    return (A * W / 10000) * precio;
+    const areaM2 = (A * W) / 10000;          // cm² → m²
+    return areaM2 * precio;
   }
   if(mat.unidad === 'metro'){
-    const perimetroM = 2 * (A + W) / 100;
-    return perimetroM * precio * (c || 1);
+    const metrosLineales = ((A + W) * 2) / 100; // 4 lados en cm → m
+    return metrosLineales * precio;
   }
-  // pza (y cualquier otra unidad) → cantidad fija
-  return c * precio;
+  return (Number(cant)||0) * precio;          // pza
+};
+
+/* Cantidad calculada de un material, para mostrarla en el editor */
+const cantidadMaterial = (mat, alto, ancho) => {
+  if(!mat) return '';
+  const A = Number(alto)||0, W = Number(ancho)||0;
+  if(mat.unidad === 'm²')    return Number(((A * W) / 10000).toFixed(3)) + ' m²';
+  if(mat.unidad === 'metro') return Number((((A + W) * 2) / 100).toFixed(2)) + ' m';
+  return '';
 };
 
 const costoProduccion = (prod, materiales) => {
@@ -1365,7 +1373,7 @@ function EditorProducto({prod, materiales, onGuardar, onCerrar, onToggle}){
               </select>
               {esPza
                 ? <input className="rc-cant" type="number" step="1" min="0" value={r.cant} title="Cantidad de piezas" onChange={e=>setReceta(i,{cant:e.target.value})}/>
-                : <span className="rc-auto" title="Se calcula por la medida del producto">{d.mat ? (d.mat.unidad==='m²'?'por área':'por perímetro') : '—'}</span>
+                : <span className="rc-auto" title="Se calcula por la medida del producto">{d.mat ? cantidadMaterial(d.mat, p.alto, p.ancho) : '—'}</span>
               }
               <span className="rc-costo">{dinero(d.costo)}</span>
               <button className="x-line" onClick={()=>setP({...p, receta:p.receta.filter((_,ix)=>ix!==i)})}>×</button>
