@@ -208,6 +208,11 @@
   .receta-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
   .receta-row select{flex:2}
   .receta-row input{flex:1}
+  .receta-row2{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .receta-row2 select{flex:1;min-width:0}
+  .receta-row2 .rc-cant{width:70px;flex:none}
+  .receta-row2 .rc-auto{width:96px;flex:none;font-size:12px;color:var(--gris-t);text-align:center}
+  .receta-row2 .rc-costo{width:74px;flex:none;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
 
   .filtros-fecha{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
   .filtros-fecha .campo{margin-bottom:0;min-width:140px}
@@ -301,18 +306,18 @@ const MATERIALES_INI = [
   {id:'m2', nombre:'Tela canvas',          unidad:'m²',     costo:95},
   {id:'m3', nombre:'Tinta de impresión',   unidad:'m²',     costo:60},
   {id:'m4', nombre:'Grapas',               unidad:'pza',    costo:0.2},
-  {id:'m5', nombre:'Papel cartel',         unidad:'pza',    costo:22},
+  {id:'m5', nombre:'Papel cartel',         unidad:'m²',     costo:22},
   {id:'m6', nombre:'Emplayado / bolsa',    unidad:'pza',    costo:6},
-  {id:'m7', nombre:'Esquineros cartón',    unidad:'juego',  costo:8},
+  {id:'m7', nombre:'Esquineros cartón',    unidad:'pza',    costo:8},
 ];
 
 const PRODUCTOS_INI = [
-  {id:'p1', tipo:'Canvas',   nombre:'Canvas 30×40',  medida:'30×40',  receta:[{mat:'m1',cant:1.4},{mat:'m2',cant:0.18},{mat:'m3',cant:0.12},{mat:'m4',cant:20},{mat:'m6',cant:1}], precio:350, activo:true},
-  {id:'p2', tipo:'Canvas',   nombre:'Canvas 40×60',  medida:'40×60',  receta:[{mat:'m1',cant:2},{mat:'m2',cant:0.3},{mat:'m3',cant:0.24},{mat:'m4',cant:26},{mat:'m6',cant:1}], precio:520, activo:true},
-  {id:'p3', tipo:'Canvas',   nombre:'Canvas 60×90',  medida:'60×90',  receta:[{mat:'m1',cant:3},{mat:'m2',cant:0.63},{mat:'m3',cant:0.54},{mat:'m4',cant:34},{mat:'m6',cant:1},{mat:'m7',cant:1}], precio:890, activo:true},
-  {id:'p4', tipo:'Bastidor', nombre:'Bastidor 30×40',medida:'30×40',  receta:[{mat:'m1',cant:1.4},{mat:'m4',cant:12}], precio:150, activo:true},
-  {id:'p5', tipo:'Bastidor', nombre:'Bastidor 50×70',medida:'50×70',  receta:[{mat:'m1',cant:2.4},{mat:'m4',cant:16}], precio:230, activo:true},
-  {id:'p6', tipo:'Cartel',   nombre:'Cartel 45×30',  medida:'45×30',  receta:[{mat:'m5',cant:1},{mat:'m3',cant:0.14},{mat:'m6',cant:1}], precio:180, activo:true},
+  {id:'p1', tipo:'Canvas',   nombre:'Canvas 30×40',  alto:30, ancho:40, receta:[{mat:'m1',cant:1},{mat:'m2',cant:1},{mat:'m3',cant:1},{mat:'m4',cant:20},{mat:'m6',cant:1}], precio:350, activo:true},
+  {id:'p2', tipo:'Canvas',   nombre:'Canvas 40×60',  alto:40, ancho:60, receta:[{mat:'m1',cant:1},{mat:'m2',cant:1},{mat:'m3',cant:1},{mat:'m4',cant:26},{mat:'m6',cant:1}], precio:520, activo:true},
+  {id:'p3', tipo:'Canvas',   nombre:'Canvas 60×90',  alto:60, ancho:90, receta:[{mat:'m1',cant:1},{mat:'m2',cant:1},{mat:'m3',cant:1},{mat:'m4',cant:34},{mat:'m6',cant:1},{mat:'m7',cant:4}], precio:890, activo:true},
+  {id:'p4', tipo:'Bastidor', nombre:'Bastidor 30×40',alto:30, ancho:40, receta:[{mat:'m1',cant:1},{mat:'m4',cant:12}], precio:150, activo:true},
+  {id:'p5', tipo:'Bastidor', nombre:'Bastidor 50×70',alto:50, ancho:70, receta:[{mat:'m1',cant:1},{mat:'m4',cant:16}], precio:230, activo:true},
+  {id:'p6', tipo:'Cartel',   nombre:'Cartel 45×30',  alto:45, ancho:30, receta:[{mat:'m5',cant:1},{mat:'m3',cant:1},{mat:'m6',cant:1}], precio:180, activo:true},
 ];
 
 const TEMAS_INI = [
@@ -326,7 +331,12 @@ const TEMAS_INI = [
   {id:'t8', nombre:'General'},
 ];
 
-const UNIDADES = ['pza','metro','m²','cm','kg','gramo','litro','ml','juego','rollo','hoja','par','bote','otra'];
+const UNIDADES = ['pza','metro','m²'];
+const UNIDAD_INFO = {
+  'pza':   'Se cobra por pieza (cantidad fija, no depende de la medida)',
+  'metro': 'Metro lineal: se calcula por el perímetro del producto (2×(alto+ancho))',
+  'm²':    'Metro cuadrado: se calcula por el área del producto (alto×ancho)',
+};
 
 const STOCK_INI = [
   {id:'s1', prodId:'p1', temaId:'t1', cantidad:4},
@@ -389,14 +399,50 @@ const GASTOS_INI = [
 /* ============================================================
    HELPERS DE NEGOCIO
    ============================================================ */
+/* Costo de un material dentro de un producto, según su unidad:
+   - m²    → (alto×ancho/10000) × costo   [área exacta en m²]
+   - metro → (2×(alto+ancho)/100) × costo × cant  [perímetro en m × nº de vueltas]
+   - pza   → cant × costo                 [cantidad fija, no depende de medida]
+   Para 'metro', 'cant' representa cuántos perímetros lleva (normalmente 1).
+   Para 'pza', 'cant' es el número de piezas. */
+const costoMaterialEnProducto = (mat, cant, alto, ancho) => {
+  if(!mat) return 0;
+  const A = Number(alto)||0, W = Number(ancho)||0, c = Number(cant)||0, precio = Number(mat.costo)||0;
+  if(mat.unidad === 'm²'){
+    return (A * W / 10000) * precio;
+  }
+  if(mat.unidad === 'metro'){
+    const perimetroM = 2 * (A + W) / 100;
+    return perimetroM * precio * (c || 1);
+  }
+  // pza (y cualquier otra unidad) → cantidad fija
+  return c * precio;
+};
+
 const costoProduccion = (prod, materiales) => {
   if(!prod || !prod.receta) return 0;
+  const alto = prod.alto, ancho = prod.ancho;
   return prod.receta.reduce((s,r) => {
     const m = materiales.find(x=>x.id===r.mat);
-    return s + (m ? m.costo * Number(r.cant||0) : 0);
+    return s + costoMaterialEnProducto(m, r.cant, alto, ancho);
   }, 0);
 };
+
+/* Devuelve la receta con el costo calculado de cada material (para desglose) */
+const desgloseProduccion = (prod, materiales) => {
+  if(!prod || !prod.receta) return [];
+  return prod.receta.map(r=>{
+    const m = materiales.find(x=>x.id===r.mat);
+    return {
+      mat: m,
+      cant: r.cant,
+      costo: costoMaterialEnProducto(m, r.cant, prod.alto, prod.ancho)
+    };
+  });
+};
 const prodDe = (id, productos) => productos.find(p=>p.id===id);
+const medidaTxt = p => (p && p.alto && p.ancho) ? (p.alto + '×' + p.ancho) : (p && p.medida ? p.medida : '');
+const prodEtiqueta = p => p ? (p.tipo + ' ' + medidaTxt(p)).trim() : '—';
 
 const leerImagen = (file, cb) => {
   const r = new FileReader();
@@ -796,7 +842,7 @@ function TabFlujo({pedidos, setPedidos, clientes, productos, temas, cobrarYEntre
                             {i.imagen ? <img className="item-thumb" src={i.imagen} alt=""/> : <div className="item-thumb-ph">Sin img</div>}
                             <div className="item-info">
                               <div className="item-t">{nomTema(i.temaId)}</div>
-                              <div className="item-m">{prod ? prod.tipo + ' ' + prod.medida : '—'}</div>
+                              <div className="item-m">{prodEtiqueta(prod)}</div>
                             </div>
                             <div className="checks">
                               <button className={'chk'+(i.tBastidor?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tBastidor')}>Bastidor</button>
@@ -928,7 +974,7 @@ function ModalDetallePedido({pedido, clientes, productos, temas, onCerrar, onAbo
             {i.imagen ? <img className="item-thumb" src={i.imagen} alt=""/> : <div className="item-thumb-ph">Sin img</div>}
             <div className="item-info">
               <div className="item-t">{nomTema(i.temaId)}</div>
-              <div className="item-m">{p ? p.tipo+' '+p.medida : '—'}</div>
+              <div className="item-m">{prodEtiqueta(p)}</div>
             </div>
           </div>
         );
@@ -1036,7 +1082,7 @@ function VentasPosLista({ventas, productos, temas}){
                       const p = prodDe(i.prodId, productos);
                       return (
                         <div key={ix} className="carrito-line">
-                          <div>{nomTema(i.temaId)} <span style={{color:'var(--gris-5)'}}>· {p?p.tipo+' '+p.medida:'—'}</span></div>
+                          <div>{nomTema(i.temaId)} <span style={{color:'var(--gris-5)'}}>· {prodEtiqueta(p)}</span></div>
                           <div style={{fontWeight:600}}>{i.cantidad} × {dinero(i.precio)}</div>
                         </div>
                       );
@@ -1127,7 +1173,7 @@ function TabPos({stock, productos, temas, venderStock}){
         <div className="card-h">Carrito</div>
         {carrito.map(c=>(
           <div key={c.stockId} className="carrito-line">
-            <div style={{flex:1}}>{nomTema(c.temaId)} <span style={{color:'var(--gris-5)'}}>· {prodDe(c.prodId, productos)?.medida}</span></div>
+            <div style={{flex:1}}>{nomTema(c.temaId)} <span style={{color:'var(--gris-5)'}}>· {medidaTxt(prodDe(c.prodId, productos))}</span></div>
             <div className="cant-ctrl">
               <button className="cant-btn" onClick={()=>cambiar(c.stockId,-1)}>−</button>
               <b>{c.cantidad}</b>
@@ -1253,7 +1299,7 @@ function TabCatalogo({productos, setProductos, materiales}){
     <div>
       <div className="subtitulo">Cada producto lleva su receta de materiales: de ahí sale el costo de producción y la utilidad</div>
       <div className="card">
-        <div className="card-h">Productos <button className="btn btn-p btn-mini" onClick={()=>setEditando({tipo:'Canvas', nombre:'', medida:'', receta:[], precio:0})}>+ Nuevo producto</button></div>
+        <div className="card-h">Productos <button className="btn btn-p btn-mini" onClick={()=>setEditando({tipo:'Canvas', nombre:'', alto:'', ancho:'', receta:[], precio:0})}>+ Nuevo producto</button></div>
         <div style={{overflowX:'auto'}}>
         <table>
           <thead><tr><th>Producto</th><th>Tipo</th><th className="td-num">Costo prod.</th><th className="td-num">Precio</th><th className="td-num">Utilidad</th><th></th></tr></thead>
@@ -1284,44 +1330,58 @@ function TabCatalogo({productos, setProductos, materiales}){
 
 function EditorProducto({prod, materiales, onGuardar, onCerrar, onToggle}){
   const [p, setP] = useState(prod);
-  const costo = costoProduccion(p, materiales);
+  const desglose = desgloseProduccion(p, materiales);
+  const costo = desglose.reduce((s,d)=>s+d.costo, 0);
+  const util = (Number(p.precio)||0) - costo;
+  const margen = p.precio>0 ? Math.round(util/p.precio*100) : 0;
   const setReceta = (i, patch) => setP({...p, receta:p.receta.map((r,ix)=>ix===i?{...r,...patch}:r)});
+  const nombreAuto = (tipo, alto, ancho) => (alto && ancho) ? (tipo + ' ' + alto + '×' + ancho) : (p.nombre||'');
   return (
     <Modal titulo={p.id?'Editar producto':'Nuevo producto'} onCerrar={onCerrar}>
       <div className="grid3">
         <div className="campo"><label>Tipo</label>
-          <select value={p.tipo} onChange={e=>setP({...p, tipo:e.target.value})}>
+          <select value={p.tipo} onChange={e=>{ const tipo=e.target.value; setP(prev=>({...prev, tipo, nombre:nombreAuto(tipo, prev.alto, prev.ancho)})); }}>
             {['Canvas','Bastidor','Cartel','Otro'].map(t=><option key={t}>{t}</option>)}
           </select>
         </div>
-        <div className="campo"><label>Medida</label><input value={p.medida} placeholder="30×40" onChange={e=>{
-          const medida = e.target.value;
-          setP(prev=>({...prev, medida, nombre: prev.tipo + ' ' + medida}));
-        }}/></div>
+        <div className="campo"><label>Alto (cm)</label><input type="number" min="0" value={p.alto} onChange={e=>{ const alto=e.target.value; setP(prev=>({...prev, alto, nombre:nombreAuto(prev.tipo, alto, prev.ancho)})); }}/></div>
+        <div className="campo"><label>Ancho (cm)</label><input type="number" min="0" value={p.ancho} onChange={e=>{ const ancho=e.target.value; setP(prev=>({...prev, ancho, nombre:nombreAuto(prev.tipo, prev.alto, ancho)})); }}/></div>
+      </div>
+      <div className="grid2">
+        <div className="campo"><label>Nombre</label><input value={p.nombre} onChange={e=>setP({...p, nombre:e.target.value})}/></div>
         <div className="campo"><label>Precio venta $</label><input type="number" min="0" value={p.precio} onChange={e=>setP({...p, precio:Number(e.target.value)||0})}/></div>
       </div>
-      <div className="campo"><label>Nombre</label><input value={p.nombre} onChange={e=>setP({...p, nombre:e.target.value})}/></div>
       <div className="campo">
-        <label>Receta de materiales</label>
-        {p.receta.map((r,i)=>(
-          <div key={i} className="receta-row">
-            <select value={r.mat} onChange={e=>setReceta(i,{mat:e.target.value})}>
-              <option value="">Material…</option>
-              {materiales.map(m=><option key={m.id} value={m.id}>{m.nombre} ({dinero(m.costo)}/{m.unidad})</option>)}
-            </select>
-            <input type="number" step="0.01" min="0" value={r.cant} onChange={e=>setReceta(i,{cant:e.target.value})}/>
-            <button className="x-line" onClick={()=>setP({...p, receta:p.receta.filter((_,ix)=>ix!==i)})}>×</button>
-          </div>
-        ))}
+        <label>Composición de materiales</label>
+        <div className="subtitulo" style={{marginTop:0, marginBottom:10}}>El costo se calcula solo: por área (m²), por perímetro (metro) o por cantidad (pza). Solo las piezas piden cantidad.</div>
+        {desglose.map((d,i)=>{
+          const r = p.receta[i];
+          const esPza = d.mat && d.mat.unidad === 'pza';
+          return (
+            <div key={i} className="receta-row2">
+              <select value={r.mat} onChange={e=>setReceta(i,{mat:e.target.value})}>
+                <option value="">Material…</option>
+                {materiales.map(m=><option key={m.id} value={m.id}>{m.nombre} ({dinero(m.costo)}/{m.unidad})</option>)}
+              </select>
+              {esPza
+                ? <input className="rc-cant" type="number" step="1" min="0" value={r.cant} title="Cantidad de piezas" onChange={e=>setReceta(i,{cant:e.target.value})}/>
+                : <span className="rc-auto" title="Se calcula por la medida del producto">{d.mat ? (d.mat.unidad==='m²'?'por área':'por perímetro') : '—'}</span>
+              }
+              <span className="rc-costo">{dinero(d.costo)}</span>
+              <button className="x-line" onClick={()=>setP({...p, receta:p.receta.filter((_,ix)=>ix!==i)})}>×</button>
+            </div>
+          );
+        })}
         <button className="btn btn-s btn-mini" onClick={()=>setP({...p, receta:[...p.receta, {mat:'', cant:1}]})}>+ Material</button>
       </div>
       <div className="total-box" style={{marginBottom:14}}>
         <div className="t-row"><span>Costo de producción</span><span>{dinero(costo)}</span></div>
-        <div className="t-row big"><span>Utilidad por pieza</span><span>{dinero(p.precio - costo)}</span></div>
+        <div className="t-row"><span>Precio de venta</span><span>{dinero(p.precio)}</span></div>
+        <div className="t-row big"><span>Utilidad por pieza</span><span>{dinero(util)} · {margen}%</span></div>
       </div>
       <div style={{display:'flex', gap:10}}>
         {p.id && <button className="btn btn-s" onClick={()=>onToggle(p)}>{p.activo!==false?'Desactivar':'Activar'}</button>}
-        <button className="btn btn-p btn-block" onClick={()=>onGuardar(p)} disabled={!p.nombre || !p.medida}>Guardar producto</button>
+        <button className="btn btn-p btn-block" onClick={()=>onGuardar(p)} disabled={!p.nombre || !p.alto || !p.ancho}>Guardar producto</button>
       </div>
     </Modal>
   );
@@ -1337,8 +1397,7 @@ function TabMateriales({materiales, setMateriales}){
     else setMateriales([...materiales, {...m, id:uid()}]);
     setEditando(null);
   };
-  const esConocida = editando ? UNIDADES.slice(0,-1).includes(editando.unidad) : false;
-  const selVal = esConocida ? (editando&&editando.unidad) : 'otra';
+  const etiquetaUnidad = u => u==='m²' ? 'Metro cuadrado (área)' : u==='metro' ? 'Metro lineal (perímetro)' : 'Pieza (cantidad fija)';
   return (
     <div>
       <div className="subtitulo">Costos unitarios que alimentan las recetas del catálogo</div>
@@ -1350,8 +1409,8 @@ function TabMateriales({materiales, setMateriales}){
             {materiales.map(m=>(
               <tr key={m.id}>
                 <td style={{fontWeight:600}}>{m.nombre}</td>
-                <td>{m.unidad}</td>
-                <td className="td-num">{dinero(m.costo)}</td>
+                <td>{etiquetaUnidad(m.unidad)}</td>
+                <td className="td-num">{dinero(m.costo)}<span style={{color:'var(--gris-t)',fontSize:12}}>/{m.unidad}</span></td>
                 <td style={{textAlign:'right'}}><button className="btn btn-s btn-mini" onClick={()=>setEditando({...m})}>Editar</button></td>
               </tr>
             ))}
@@ -1362,14 +1421,14 @@ function TabMateriales({materiales, setMateriales}){
         <div className="campo"><label>Nombre</label><input value={editando.nombre} onChange={e=>setEditando({...editando, nombre:e.target.value})}/></div>
         <div className="grid2">
           <div className="campo">
-            <label>Unidad</label>
-            <select value={selVal} onChange={e=>setEditando({...editando, unidad: e.target.value==='otra' ? '' : e.target.value})}>
-              {UNIDADES.map(u=><option key={u} value={u}>{u}</option>)}
+            <label>Unidad de medida</label>
+            <select value={editando.unidad} onChange={e=>setEditando({...editando, unidad:e.target.value})}>
+              {UNIDADES.map(u=><option key={u} value={u}>{etiquetaUnidad(u)}</option>)}
             </select>
-            {selVal==='otra' && <input style={{marginTop:8}} placeholder="Escribe la unidad" value={editando.unidad} onChange={e=>setEditando({...editando, unidad:e.target.value})}/>}
           </div>
           <div className="campo"><label>Costo unitario $</label><input type="number" step="0.01" min="0" value={editando.costo} onChange={e=>setEditando({...editando, costo:Number(e.target.value)||0})}/></div>
         </div>
+        <div className="subtitulo" style={{marginTop:2}}>{UNIDAD_INFO[editando.unidad]}</div>
         <button className="btn btn-p btn-block" onClick={()=>guardar(editando)} disabled={!editando.nombre || !editando.unidad}>Guardar material</button>
       </Modal>}
     </div>
@@ -1653,7 +1712,7 @@ function TabReportes({pedidos, ventas, gastos, productos, materiales, temas, cli
   const nomTema = id => (temas.find(t=>t.id===id)||{}).nombre || '';
   ventasR.forEach(v=>v.items.forEach(i=>{
     const p = prodDe(i.prodId, productos);
-    const k = p ? p.tipo+' '+p.medida : 'Otro';
+    const k = (p ? prodEtiqueta(p) : 'Otro');
     piezas[k] = (piezas[k]||0) + i.cantidad;
     const tn = nomTema(i.temaId);
     if(tn) temasCount[tn] = (temasCount[tn]||0) + i.cantidad;
@@ -1661,7 +1720,7 @@ function TabReportes({pedidos, ventas, gastos, productos, materiales, temas, cli
   pedidos.filter(p=>p.estado==='entregado' && p.fechaEntregado && enRango(p.fechaEntregado) && p.destino==='cliente').forEach(p=>{
     p.items.forEach(i=>{
       const pr = prodDe(i.prodId, productos);
-      const k = pr ? pr.tipo+' '+pr.medida : 'Otro';
+      const k = (pr ? prodEtiqueta(pr) : 'Otro');
       piezas[k] = (piezas[k]||0) + 1;
       const tn = nomTema(i.temaId);
       if(tn) temasCount[tn] = (temasCount[tn]||0) + 1;
@@ -1677,6 +1736,19 @@ function TabReportes({pedidos, ventas, gastos, productos, materiales, temas, cli
   });
 
   const ingresoTotal = totalPos + totalPedidos;
+
+  // Utilidad por pedido entregado en el rango: costo real de materiales vs precio de venta
+  const pedidosEntregadosRango = pedidos.filter(p=>p.estado==='entregado' && p.fechaEntregado && enRango(p.fechaEntregado) && p.destino==='cliente');
+  const analisisPedidos = pedidosEntregadosRango.map(p=>{
+    const costo = (p.items||[]).reduce((s,i)=>s + costoProduccion(prodDe(i.prodId, productos), materiales), 0);
+    const util = (p.total||0) - costo;
+    const margen = p.total>0 ? Math.round(util/p.total*100) : 0;
+    const nc = clientes.find(c=>c.id===p.clienteId)?.nombre || p.clienteNombre || 'Cliente';
+    return {p, nc, costo, util, margen};
+  });
+  const totCostoPed = analisisPedidos.reduce((s,a)=>s+a.costo, 0);
+  const totVentaPed = analisisPedidos.reduce((s,a)=>s+a.p.total, 0);
+  const totUtilPed = totVentaPed - totCostoPed;
 
   const [verDesglose, setVerDesglose] = useState('');
   const pedidosConPago = pedidos.filter(p=>p.destino==='cliente' && (p.pagos||[]).some(x=>enRango(x.fecha)));
@@ -1738,6 +1810,7 @@ function TabReportes({pedidos, ventas, gastos, productos, materiales, temas, cli
         <div className="chips-rapidos" style={{marginBottom:12}}>
           <button className={'chip-f'+(verDesglose==='pos'?' on':'')} onClick={()=>setVerDesglose(verDesglose==='pos'?'':'pos')}>Ventas de stock ({ventasR.length})</button>
           <button className={'chip-f'+(verDesglose==='pedidos'?' on':'')} onClick={()=>setVerDesglose(verDesglose==='pedidos'?'':'pedidos')}>Pedidos con pagos ({pedidosConPago.length})</button>
+          <button className={'chip-f'+(verDesglose==='utilidad'?' on':'')} onClick={()=>setVerDesglose(verDesglose==='utilidad'?'':'utilidad')}>Costo vs venta ({analisisPedidos.length})</button>
         </div>
         {verDesglose==='' && <div style={{fontSize:12.5, color:'var(--gris-5)'}}>Toca una opción para ver el detalle de cada venta o pedido del periodo</div>}
         {verDesglose==='pos' && <>
@@ -1750,7 +1823,7 @@ function TabReportes({pedidos, ventas, gastos, productos, materiales, temas, cli
               </div>
               {v.items.map((i,ix)=>{
                 const p = prodDe(i.prodId, productos);
-                return <div key={ix} style={{fontSize:13}}>{i.cantidad} × {nomTemaR(i.temaId)} <span style={{color:'var(--gris-5)'}}>· {p?p.tipo+' '+p.medida:'—'}</span></div>;
+                return <div key={ix} style={{fontSize:13}}>{i.cantidad} × {nomTemaR(i.temaId)} <span style={{color:'var(--gris-5)'}}>· {prodEtiqueta(p)}</span></div>;
               })}
             </div>
           ))}
@@ -1779,6 +1852,25 @@ function TabReportes({pedidos, ventas, gastos, productos, materiales, temas, cli
               </div>
             );
           })}
+        </>}
+        {verDesglose==='utilidad' && <>
+          {analisisPedidos.length===0 && <Vacio t="Sin pedidos entregados" x="No hay pedidos entregados en el rango para analizar"/>}
+          {analisisPedidos.map(({p, nc, costo, util, margen})=>(
+            <div key={p.id} style={{border:'1px solid var(--gris-2)', borderRadius:8, padding:'9px 12px', marginBottom:8}}>
+              <div style={{display:'flex', justifyContent:'space-between', marginBottom:4}}>
+                <span><b>#{p.folio}</b> · {nc}</span>
+                <span style={{fontWeight:700, color:util>=0?'var(--verde)':'var(--rojo)'}}>{dinero(util)} · {margen}%</span>
+              </div>
+              <div style={{fontSize:12.5, color:'var(--gris-5)'}}>
+                Venta {dinero(p.total)} · Costo producción {dinero(Math.round(costo))} · {(p.items||[]).length} pza
+              </div>
+            </div>
+          ))}
+          {analisisPedidos.length>0 && <div className="total-box" style={{marginTop:4}}>
+            <div className="t-row"><span>Venta total ({analisisPedidos.length} pedidos)</span><span>{dinero(totVentaPed)}</span></div>
+            <div className="t-row"><span>Costo de producción total</span><span>−{dinero(Math.round(totCostoPed))}</span></div>
+            <div className="t-row big"><span>Utilidad total de pedidos</span><span>{dinero(Math.round(totUtilPed))} · {totVentaPed>0?Math.round(totUtilPed/totVentaPed*100):0}%</span></div>
+          </div>}
         </>}
       </div>
 
