@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FANATICARTE — Sistema</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  :root{
+    --amarillo:#FFDD00;
+    --amarillo-suave:#FFF7C2;
+    --negro:#141414;
+    --tinta:#1F1F1F;
+    --gris-7:#4A4A4A;
+    --gris-5:#8A8A86;
+    --gris-3:#D8D8D3;
+    --gris-2:#EBEBE6;
+    --fondo:#FAFAF7;
+    --blanco:#FFFFFF;
+    --rojo:#D64541;
+    --rojo-suave:#FDEBEA;
+    --verde:#2E8B57;
+    --verde-suave:#E7F4EC;
+    --azul:#3B6EA5;
+    --azul-suave:#EAF1F8;
+    --radio:10px;
+    --sombra:0 1px 3px rgba(20,20,20,.06), 0 4px 14px rgba(20,20,20,.05);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--fondo);color:var(--tinta);font-size:14px;line-height:1.45}
+  #root{min-height:100%}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  input,select,textarea{font-family:inherit;font-size:14px;color:var(--tinta)}
+  input,select,textarea{width:100%;padding:9px 11px;border:1.5px solid var(--gris-3);border-radius:8px;background:var(--blanco);outline:none;transition:border-color .15s}
+  input:focus,select:focus,textarea:focus{border-color:var(--negro)}
+  input[type=checkbox]{width:auto}
+  label{display:block;font-size:11px;font-weight:600;color:var(--gris-7);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+  ::placeholder{color:var(--gris-5)}
+
+  /* ===== marca ===== */
+  .marca{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:800;letter-spacing:.02em;display:inline-flex;align-items:baseline;gap:1px}
+  .marca .m1{color:var(--negro)}
+  .marca .m2{background:var(--negro);color:var(--amarillo);padding:1px 6px 2px;border-radius:5px;margin-left:2px}
+  .marca-img{display:block;border-radius:8px;object-fit:cover}
+  .marca-img-login{height:64px;margin:0 auto 6px;border-radius:12px}
+  .marca-img-top{height:34px}
+
+  /* ===== login ===== */
+  .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--fondo);padding:20px}
+  .login-card{width:100%;max-width:360px;text-align:center}
+  .login-card .marca{font-size:34px;margin-bottom:6px}
+  .login-sub{color:var(--gris-5);font-size:12px;text-transform:uppercase;letter-spacing:.18em;margin-bottom:34px}
+  .login-users{display:flex;flex-direction:column;gap:10px;margin-bottom:22px}
+  .login-user{display:flex;align-items:center;gap:14px;background:var(--blanco);border:1.5px solid var(--gris-2);border-radius:var(--radio);padding:14px 16px;text-align:left;transition:border-color .15s}
+  .login-user:hover{border-color:var(--negro)}
+  .login-user.sel{border-color:var(--negro);box-shadow:0 0 0 2px var(--amarillo)}
+  .avatar{width:38px;height:38px;border-radius:50%;background:var(--amarillo);color:var(--negro);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .login-user .lu-n{font-weight:600;font-size:15px}
+  .login-user .lu-r{font-size:12px;color:var(--gris-5)}
+  .pin-row{display:flex;gap:10px;justify-content:center;margin-bottom:18px}
+  .pin-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--gris-3);background:var(--blanco)}
+  .pin-dot.on{background:var(--negro);border-color:var(--negro)}
+  .pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:260px;margin:0 auto}
+  .pin-key{background:var(--blanco);border:1.5px solid var(--gris-2);border-radius:12px;padding:16px 0;font-size:18px;font-weight:600;transition:background .1s}
+  .pin-key:active{background:var(--amarillo-suave)}
+  .demo-note{margin-top:26px;font-size:12px;color:var(--gris-5)}
+  .demo-note b{color:var(--gris-7)}
+
+  /* ===== shell ===== */
+  .shell{display:flex;flex-direction:column;min-height:100vh}
+  .topbar{background:var(--blanco);border-bottom:1px solid var(--gris-2);padding:0 18px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:40}
+  .topbar .marca{font-size:19px}
+  .topbar-right{display:flex;align-items:center;gap:12px}
+  .chip-user{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+  .chip-user .avatar{width:28px;height:28px;font-size:12px}
+  .btn-salir{font-size:12px;color:var(--gris-5);font-weight:600;padding:6px 10px;border-radius:7px}
+  .btn-salir:hover{background:var(--gris-2);color:var(--tinta)}
+  .demo-flag{font-size:10px;font-weight:700;letter-spacing:.1em;background:var(--amarillo);color:var(--negro);padding:3px 8px;border-radius:5px;text-transform:uppercase}
+
+  .nav{background:var(--blanco);border-bottom:1px solid var(--gris-2);display:flex;overflow-x:auto;padding:0 10px;position:sticky;top:56px;z-index:39;scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav-btn{white-space:nowrap;padding:13px 14px;font-size:13px;font-weight:600;color:var(--gris-5);border-bottom:2.5px solid transparent;transition:color .15s}
+  .nav-btn:hover{color:var(--tinta)}
+  .nav-btn.on{color:var(--negro);border-bottom-color:var(--amarillo)}
+  .nav-btn .nb-badge{display:inline-block;margin-left:6px;background:var(--negro);color:var(--amarillo);font-size:10px;font-weight:700;border-radius:9px;padding:1px 7px;vertical-align:1px}
+
+  .main{flex:1;padding:18px;max-width:1180px;width:100%;margin:0 auto}
+  @media(min-width:760px){.main{padding:26px 28px}}
+
+  /* ===== bloques ===== */
+  .titulo{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:700;font-size:21px;margin-bottom:4px}
+  .subtitulo{color:var(--gris-5);font-size:13px;margin-bottom:20px}
+  .card{background:var(--blanco);border:1px solid var(--gris-2);border-radius:var(--radio);padding:16px;box-shadow:var(--sombra)}
+  .card+.card{margin-top:14px}
+  .card-h{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:700px){.grid3,.grid4{grid-template-columns:1fr 1fr}}
+  @media(max-width:460px){.grid2{grid-template-columns:1fr}}
+  .campo{margin-bottom:12px}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-weight:600;font-size:13.5px;padding:10px 18px;border-radius:8px;transition:transform .08s, background .15s}
+  .btn:active{transform:scale(.98)}
+  .btn-p{background:var(--negro);color:var(--amarillo)}
+  .btn-p:hover{background:#000}
+  .btn-s{background:var(--blanco);border:1.5px solid var(--gris-3);color:var(--tinta)}
+  .btn-s:hover{border-color:var(--negro)}
+  .btn-am{background:var(--amarillo);color:var(--negro)}
+  .btn-rojo{background:var(--rojo-suave);color:var(--rojo)}
+  .btn-mini{padding:6px 11px;font-size:12px;border-radius:7px}
+  .btn-block{width:100%}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:uppercase;letter-spacing:.04em}
+  .tag-am{background:var(--amarillo-suave);color:#8a7500}
+  .tag-gris{background:var(--gris-2);color:var(--gris-7)}
+  .tag-verde{background:var(--verde-suave);color:var(--verde)}
+  .tag-rojo{background:var(--rojo-suave);color:var(--rojo)}
+  .tag-azul{background:var(--azul-suave);color:var(--azul)}
+  .tag-negro{background:var(--negro);color:var(--amarillo)}
+
+  .stat{background:var(--blanco);border:1px solid var(--gris-2);border-radius:var(--radio);padding:14px 16px}
+  .stat .s-l{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gris-5)}
+  .stat .s-v{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:700;font-size:22px;margin-top:3px}
+  .stat .s-x{font-size:12px;color:var(--gris-5);margin-top:2px}
+
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gris-5);padding:8px 10px;border-bottom:1.5px solid var(--gris-2)}
+  td{padding:10px;border-bottom:1px solid var(--gris-2);font-size:13.5px;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  .td-num{text-align:right;font-variant-numeric:tabular-nums}
+  th.td-num{text-align:right}
+
+  /* ===== flujo ===== */
+  .flujo-cols{display:grid;grid-template-columns:1fr;gap:16px}
+  @media(min-width:900px){.flujo-cols{grid-template-columns:1fr 1fr 1fr}}
+  .fcol-h{display:flex;align-items:center;gap:8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
+  .fcol-h .fc-n{background:var(--gris-2);border-radius:8px;font-size:11px;padding:1px 8px}
+  .fcol-h.urgente{color:var(--rojo)}
+  .pedido-card{background:var(--blanco);border:1px solid var(--gris-2);border-left:4px solid var(--gris-3);border-radius:var(--radio);padding:13px 14px;margin-bottom:10px;box-shadow:var(--sombra)}
+  .pedido-card.urgente{border-left-color:var(--rojo)}
+  .pedido-card.hoy{border-left-color:var(--amarillo)}
+  .pedido-card.ok{border-left-color:var(--verde)}
+  .pc-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .pc-folio{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:700;font-size:15px}
+  .pc-cliente{font-size:13px;color:var(--gris-7);margin-top:1px}
+  .pc-fecha{font-size:12px;color:var(--gris-5);margin-top:2px}
+  .pc-items{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+  .item-row{display:flex;align-items:center;gap:10px;background:var(--fondo);border:1px solid var(--gris-2);border-radius:8px;padding:8px 10px}
+  .item-thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;background:var(--gris-2);flex-shrink:0;border:1px solid var(--gris-2)}
+  .item-thumb-ph{width:44px;height:44px;border-radius:6px;background:var(--gris-2);color:var(--gris-5);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+  .item-info{flex:1;min-width:0}
+  .item-t{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item-m{font-size:12px;color:var(--gris-5)}
+  .checks{display:flex;gap:6px}
+  .chk{font-size:11px;font-weight:700;padding:5px 9px;border-radius:6px;border:1.5px solid var(--gris-3);color:var(--gris-5);background:var(--blanco);text-transform:uppercase;letter-spacing:.03em}
+  .chk.on{background:var(--negro);border-color:var(--negro);color:var(--amarillo)}
+  .pc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:11px;gap:8px;flex-wrap:wrap}
+  .envio-box{margin-top:10px;background:var(--azul-suave);border-radius:8px;padding:9px 11px;font-size:12.5px;color:var(--azul)}
+  .envio-box b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+  .guia-img{margin-top:7px;max-width:130px;border-radius:6px;border:1px solid var(--gris-3);display:block}
+
+  /* ===== constructor pedido ===== */
+  .prod-line{display:flex;gap:12px;align-items:flex-start;background:var(--fondo);border:1px solid var(--gris-2);border-radius:var(--radio);padding:12px;margin-bottom:10px}
+  .up-thumb{width:74px;height:74px;border-radius:8px;border:1.5px dashed var(--gris-3);background:var(--blanco);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--gris-5);text-align:center;cursor:pointer;flex-shrink:0;overflow:hidden;text-transform:uppercase;letter-spacing:.04em}
+  .up-thumb img{width:100%;height:100%;object-fit:cover}
+  .prod-line-campos{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  @media(max-width:560px){.prod-line-campos{grid-template-columns:1fr}}
+  .x-line{color:var(--gris-5);font-size:18px;font-weight:600;padding:2px 8px;border-radius:6px}
+  .x-line:hover{background:var(--rojo-suave);color:var(--rojo)}
+  .total-box{background:var(--negro);color:var(--blanco);border-radius:var(--radio);padding:16px 18px;display:flex;flex-direction:column;gap:7px}
+  .total-box .t-row{display:flex;justify-content:space-between;font-size:13.5px;color:#CFCFCA}
+  .total-box .t-row.big{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:700;font-size:20px;color:var(--amarillo);border-top:1px solid #3A3A3A;padding-top:9px;margin-top:3px}
+
+  /* ===== pos ===== */
+  .pos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .pos-item{background:var(--blanco);border:1.5px solid var(--gris-2);border-radius:var(--radio);padding:12px;text-align:left;transition:border-color .12s}
+  .pos-item:hover{border-color:var(--negro)}
+  .pos-item .pi-t{font-weight:600;font-size:13px}
+  .pos-item .pi-m{font-size:12px;color:var(--gris-5)}
+  .pos-item .pi-p{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:700;margin-top:5px}
+  .pos-item .pi-s{font-size:11px;color:var(--gris-5)}
+  .pos-item.agotado{opacity:.45;pointer-events:none}
+  .carrito-line{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gris-2);font-size:13.5px;gap:8px}
+  .cant-ctrl{display:flex;align-items:center;gap:8px}
+  .cant-btn{width:26px;height:26px;border-radius:7px;border:1.5px solid var(--gris-3);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+  .metodo-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .metodo-btn{padding:10px 6px;border-radius:8px;border:1.5px solid var(--gris-3);font-weight:600;font-size:12.5px;background:var(--blanco)}
+  .metodo-btn.on{background:var(--negro);border-color:var(--negro);color:var(--amarillo)}
+
+  /* ===== modal ===== */
+  .modal-bg{position:fixed;inset:0;background:rgba(20,20,20,.45);z-index:80;display:flex;align-items:flex-end;justify-content:center}
+  @media(min-width:640px){.modal-bg{align-items:center;padding:24px}}
+  .modal{background:var(--blanco);width:100%;max-width:560px;border-radius:16px 16px 0 0;max-height:92vh;overflow-y:auto;padding:20px}
+  @media(min-width:640px){.modal{border-radius:14px}}
+  .modal-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .modal-h .titulo{margin-bottom:0;font-size:18px}
+  .modal-x{font-size:22px;color:var(--gris-5);padding:2px 10px;border-radius:7px}
+  .modal-x:hover{background:var(--gris-2);color:var(--tinta)}
+
+  .vacio{text-align:center;padding:40px 20px;color:var(--gris-5)}
+  .vacio .v-t{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-weight:600;font-size:15px;color:var(--gris-7);margin-bottom:4px}
+
+  .receta-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .receta-row select{flex:2}
+  .receta-row input{flex:1}
+
+  .filtros-fecha{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+  .filtros-fecha .campo{margin-bottom:0;min-width:140px}
+  .chips-rapidos{display:flex;gap:6px;flex-wrap:wrap}
+  .chip-f{font-size:12px;font-weight:600;padding:7px 13px;border-radius:20px;border:1.5px solid var(--gris-3);background:var(--blanco)}
+  .chip-f.on{background:var(--negro);border-color:var(--negro);color:var(--amarillo)}
+
+  .perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .perm-item{display:flex;align-items:center;gap:9px;background:var(--fondo);border:1px solid var(--gris-2);border-radius:8px;padding:9px 11px;font-size:13px;font-weight:500;cursor:pointer}
+  .perm-item input{width:16px;height:16px;accent-color:var(--negro)}
+
+  .subnav{display:flex;gap:6px;margin-bottom:18px;background:var(--gris-2);padding:4px;border-radius:10px;width:fit-content;max-width:100%;overflow-x:auto}
+  .subnav-btn{white-space:nowrap;padding:8px 16px;font-size:13px;font-weight:600;color:var(--gris-7);border-radius:7px}
+  .subnav-btn.on{background:var(--blanco);color:var(--negro);box-shadow:var(--sombra)}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--negro);color:var(--blanco);padding:12px 22px;border-radius:10px;font-weight:600;font-size:13.5px;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.25);animation:toastIn .2s ease}
+  .toast b{color:var(--amarillo)}
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const {useState, useEffect, useMemo, useRef} = React;
+
+/* ============================================================
+   CONFIGURACIÓN DE CONEXIÓN
+   MODE 'demo'  → todo en memoria con datos de ejemplo (vista previa)
+   MODE 'sheets'→ cuando conectemos: pegar URL del Apps Script aquí
+   ============================================================ */
+const API = {
+  MODE: 'demo',
+  URL: '', // URL del Web App de Google Apps Script (pendiente)
+  guardar(payload){
+    if(API.MODE === 'demo') return Promise.resolve({ok:true});
+    return fetch(API.URL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload)});
+  }
+};
+
+const hoyISO = () => new Date().toISOString().slice(0,10);
+const dinero = n => '$' + (Number(n)||0).toLocaleString('es-MX', {minimumFractionDigits:0, maximumFractionDigits:0});
+const fFecha = iso => { if(!iso) return '—'; const d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString('es-MX',{day:'numeric',month:'short'}); };
+const diasPara = iso => { if(!iso) return 999; const a = new Date(hoyISO()+'T12:00:00'), b = new Date(iso+'T12:00:00'); return Math.round((b-a)/86400000); };
+const uid = () => Math.random().toString(36).slice(2,9);
+
+/* Logo original FANATICARTE (incrustado como base64) */
+const LOGO_URI = "data:image/jpeg;base64,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ECTCeWFa+5tfp77q+H/tT+e/W/NnouL92/SOb7k8xsPz7/Iu39Mvkv6A8d1P1V+cP2l+eP0WX6beS+H8jgv318P8n5z9Jl7B9Qfnar2c/UPUPlcfpLfG5cnqZdt9nfD/ANxfF9I/iv7a+Nc2qffvO/rLReRsLT4383XlatuH9M894NincWGr1Rvvs74b6rwNPqD2hn83/AdvI879ZK9vH4x+vn15w6dZ8c/X351uvFszNf1vzRjIPdR7J1ttqykqpO2rbalbajKCbOcPK82DfVX1t+W7r4LstPXPA1fQZfUXzvS7K7ZryO6boGNWPdbQdanSfDZp1V4lqlg6zXNPCMVLdF9xfAfXfO7/AFhac7efE9JFbwnW7L5jb1/3vIQYR+xkYYdqrhTVSz51VkybvPsz8/bT53f708/+bfRvA39s9S+L/Mcr1bwvM/u+RIVD9bBI1D1slWaTtqykqpO2rbaspKqUoaljKCpZ0RqrJnRGeWeZrqdZnqdJbjp0lulpxm+ZTYOo2CmnRGZFZ4SvItcOufVg9wzZjacBGPdCJGloiUpZSKHjGI3yTxTNSs+UxyzpLXUQaR6SkpSy5O2snbVttWUlVJ21bbVlJ1KyVUogcsZTdVGUHJEw9RMPURI88TBVSsPUTD1Ew9RsPUbDUsTDwiYeMRKR0RKUtKydSsnUTDVRsHJGw8YmGkREpS8rJzWTtW21KTtWUlVJ21bbVttW21ZSVVttWydSttWydSslVbJ1bbVttW21K21KSlVKydSsnVttW2TW21bbVlJ1K21bJ1KyVVsnVttW21bbVttW2VSdtW21bbVttWUnVttWUnVttW21bbVttSsnVttW21bbVttSk7VttW21bbVttW21bbVttW21KTtW21bbVttW21bbVlJVSdtW21bbVttW2VSdtW21bKTW21bKTW21bZVJ21bZVJyk1ttWyk1ttW2VSdtW2VSdtW21bKTW21bKTW21bZVJ67e1V8z70Lz2ttq2yqTtq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq3oXnupaNq22rKTq22rbattq22rbKpO2rbatlJrbattq22rbKpO2rbalJ2rbatlJrbatlJrbatlJrbatsqsnattq22rbatlJrbatsqk7aspKqTlak5WpOVqT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";
+
+
+/* ============================================================
+   DATOS DE EJEMPLO (modo demo)
+   ============================================================ */
+const MODULOS = [
+  {id:'hoy',       nombre:'Hoy'},
+  {id:'pedido',    nombre:'Nuevo Pedido'},
+  {id:'flujo',     nombre:'Flujo'},
+  {id:'pos',       nombre:'Venta Stock'},
+  {id:'ventas',    nombre:'Ventas'},
+  {id:'inventario',nombre:'Inventario'},
+  {id:'bases',     nombre:'Bases'},
+  {id:'clientes',  nombre:'Clientes'},
+  {id:'gastos',    nombre:'Gastos'},
+  {id:'reportes',  nombre:'Reportes'},
+  {id:'usuarios',  nombre:'Usuarios'},
+];
+
+const USUARIOS_INI = [
+  {id:'u1', nombre:'Charly', rol:'Administrador', pin:'1234', modulos:MODULOS.map(m=>m.id)},
+  {id:'u2', nombre:'Raúl',   rol:'Producción',    pin:'2222', modulos:['hoy','flujo','ventas','inventario','bases']},
+];
+
+const MATERIALES_INI = [
+  {id:'m1', nombre:'Madera para bastidor', unidad:'metro',  costo:18},
+  {id:'m2', nombre:'Tela canvas',          unidad:'m²',     costo:95},
+  {id:'m3', nombre:'Tinta de impresión',   unidad:'m²',     costo:60},
+  {id:'m4', nombre:'Grapas',               unidad:'pza',    costo:0.2},
+  {id:'m5', nombre:'Papel cartel',         unidad:'pza',    costo:22},
+  {id:'m6', nombre:'Emplayado / bolsa',    unidad:'pza',    costo:6},
+  {id:'m7', nombre:'Esquineros cartón',    unidad:'juego',  costo:8},
+];
+
+const PRODUCTOS_INI = [
+  {id:'p1', tipo:'Canvas',   nombre:'Canvas 30×40',  medida:'30×40',  receta:[{mat:'m1',cant:1.4},{mat:'m2',cant:0.18},{mat:'m3',cant:0.12},{mat:'m4',cant:20},{mat:'m6',cant:1}], precio:350, activo:true},
+  {id:'p2', tipo:'Canvas',   nombre:'Canvas 40×60',  medida:'40×60',  receta:[{mat:'m1',cant:2},{mat:'m2',cant:0.3},{mat:'m3',cant:0.24},{mat:'m4',cant:26},{mat:'m6',cant:1}], precio:520, activo:true},
+  {id:'p3', tipo:'Canvas',   nombre:'Canvas 60×90',  medida:'60×90',  receta:[{mat:'m1',cant:3},{mat:'m2',cant:0.63},{mat:'m3',cant:0.54},{mat:'m4',cant:34},{mat:'m6',cant:1},{mat:'m7',cant:1}], precio:890, activo:true},
+  {id:'p4', tipo:'Bastidor', nombre:'Bastidor 30×40',medida:'30×40',  receta:[{mat:'m1',cant:1.4},{mat:'m4',cant:12}], precio:150, activo:true},
+  {id:'p5', tipo:'Bastidor', nombre:'Bastidor 50×70',medida:'50×70',  receta:[{mat:'m1',cant:2.4},{mat:'m4',cant:16}], precio:230, activo:true},
+  {id:'p6', tipo:'Cartel',   nombre:'Cartel 45×30',  medida:'45×30',  receta:[{mat:'m5',cant:1},{mat:'m3',cant:0.14},{mat:'m6',cant:1}], precio:180, activo:true},
+];
+
+const TEMAS_INI = [
+  {id:'t1', nombre:'Cine'},
+  {id:'t2', nombre:'Música'},
+  {id:'t3', nombre:'Arte / Frida Kahlo'},
+  {id:'t4', nombre:'Paisajes'},
+  {id:'t5', nombre:'Retratos personalizados'},
+  {id:'t6', nombre:'Series y TV'},
+  {id:'t7', nombre:'Vintage / Regional'},
+  {id:'t8', nombre:'General'},
+];
+
+const UNIDADES = ['pza','metro','m²','cm','kg','gramo','litro','ml','juego','rollo','hoja','par','bote','otra'];
+
+const STOCK_INI = [
+  {id:'s1', prodId:'p1', temaId:'t1', cantidad:4},
+  {id:'s2', prodId:'p1', temaId:'t3', cantidad:2},
+  {id:'s3', prodId:'p2', temaId:'t2', cantidad:3},
+  {id:'s4', prodId:'p6', temaId:'t1', cantidad:6},
+  {id:'s5', prodId:'p3', temaId:'t4', cantidad:1},
+];
+
+const CLIENTES_INI = [
+  {id:'c1', nombre:'Mariana López', telefono:'6671234567', ciudad:'Culiacán',   comentarios:'Prefiere temas de cine. Recoge en tienda.'},
+  {id:'c2', nombre:'Jorge Beltrán', telefono:'6679876543', ciudad:'Mazatlán',   comentarios:'Siempre pide envío. Paga por transferencia.'},
+  {id:'c3', nombre:'Sofía Camacho', telefono:'6675550101', ciudad:'Culiacán',   comentarios:''},
+];
+
+const CAT_GASTOS_INI = ['Material', 'Renta', 'Servicios', 'Envíos', 'Publicidad', 'Otros'];
+
+const ayer = () => { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); };
+const manana = n => { const d = new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+
+const PEDIDOS_INI = [
+  {id:'pd1', folio:101, clienteId:'c1', fecha:ayer(), entrega:hoyISO(), estado:'produccion', destino:'cliente',
+   items:[
+     {id:'i1', prodId:'p1', temaId:'t1', imagen:null, tBastidor:true,  tImagen:false},
+     {id:'i2', prodId:'p2', temaId:'t1', imagen:null, tBastidor:false, tImagen:false},
+   ],
+   total:870, descuento:0, anticipo:400, metodoAnticipo:'Efectivo', pagos:[{monto:400, metodo:'Efectivo', fecha:ayer()}],
+   envio:null},
+  {id:'pd2', folio:102, clienteId:'c2', fecha:ayer(), entrega:manana(2), estado:'produccion', destino:'cliente',
+   items:[
+     {id:'i3', prodId:'p3', temaId:'t7', imagen:null, tBastidor:false, tImagen:false},
+   ],
+   total:890, descuento:10, anticipo:500, metodoAnticipo:'Transferencia', pagos:[{monto:500, metodo:'Transferencia', fecha:ayer()}],
+   envio:{ciudad:'Mazatlán', direccion:'Av. del Mar 1500, Col. Tellería', paqueteria:'Estafeta', guia:null}},
+  {id:'pd3', folio:103, clienteId:null, clienteNombre:'Stock FANATICARTE', fecha:hoyISO(), entrega:manana(4), estado:'produccion', destino:'stock',
+   items:[
+     {id:'i4', prodId:'p1', temaId:'t6', imagen:null, tBastidor:false, tImagen:false},
+     {id:'i5', prodId:'p1', temaId:'t6', imagen:null, tBastidor:false, tImagen:false},
+     {id:'i6', prodId:'p6', temaId:'t2', imagen:null, tBastidor:false, tImagen:false},
+   ],
+   total:0, descuento:0, anticipo:0, pagos:[], envio:null},
+  {id:'pd4', folio:100, clienteId:'c3', fecha:manana(-6), entrega:manana(-3), estado:'entregado', fechaEntregado:manana(-3), destino:'cliente',
+   items:[
+     {id:'i7', prodId:'p4', temaId:'t8', imagen:null, tBastidor:true, tImagen:true},
+   ],
+   total:150, descuento:0, anticipo:150, metodoAnticipo:'Efectivo', pagos:[{monto:150, metodo:'Efectivo', fecha:manana(-3)}],
+   envio:null},
+];
+
+const VENTAS_INI = [
+  {id:'v1', fecha:hoyISO(), items:[{prodId:'p1', temaId:'t1', cantidad:1, precio:350}], total:350, descuento:0, metodo:'Efectivo'},
+  {id:'v2', fecha:ayer(),   items:[{prodId:'p6', temaId:'t1', cantidad:2, precio:180}], total:360, descuento:0, metodo:'Tarjeta'},
+];
+
+const GASTOS_INI = [
+  {id:'g1', fecha:hoyISO(), categoria:'Material', concepto:'Madera 20 tiras', monto:360, metodo:'Efectivo'},
+  {id:'g2', fecha:ayer(),   categoria:'Envíos',   concepto:'Guía Estafeta folio 102', monto:145, metodo:'Tarjeta'},
+];
+
+/* ============================================================
+   HELPERS DE NEGOCIO
+   ============================================================ */
+const costoProduccion = (prod, materiales) => {
+  if(!prod || !prod.receta) return 0;
+  return prod.receta.reduce((s,r) => {
+    const m = materiales.find(x=>x.id===r.mat);
+    return s + (m ? m.costo * Number(r.cant||0) : 0);
+  }, 0);
+};
+const prodDe = (id, productos) => productos.find(p=>p.id===id);
+
+const leerImagen = (file, cb) => {
+  const r = new FileReader();
+  r.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 600;
+      let {width:w, height:h} = img;
+      if(w>MAX || h>MAX){ const k = MAX/Math.max(w,h); w=Math.round(w*k); h=Math.round(h*k); }
+      const c = document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      cb(c.toDataURL('image/jpeg', .75));
+    };
+    img.src = e.target.result;
+  };
+  r.readAsDataURL(file);
+};
+
+/* ============================================================
+   COMPONENTES BASE
+   ============================================================ */
+function Modal({titulo, onCerrar, children}){
+  return (
+    <div className="modal-bg" onClick={e=>{ if(e.target===e.currentTarget) onCerrar(); }}>
+      <div className="modal">
+        <div className="modal-h">
+          <div className="titulo">{titulo}</div>
+          <button className="modal-x" onClick={onCerrar}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Toast({msg}){ return msg ? <div className="toast" dangerouslySetInnerHTML={{__html:msg}}/> : null; }
+
+function Vacio({t, x}){ return <div className="vacio"><div className="v-t">{t}</div><div>{x}</div></div>; }
+
+function SelectTema({value, onChange, temas, crearTema}){
+  const [nuevo, setNuevo] = useState(false);
+  const [n, setN] = useState('');
+  if(nuevo){
+    return (
+      <div style={{display:'flex', gap:6}}>
+        <input autoFocus placeholder="Nombre del tema" value={n} onChange={e=>setN(e.target.value)}/>
+        <button className="btn btn-p btn-mini" style={{flexShrink:0}} onClick={()=>{
+          if(!n.trim()) return;
+          const id = crearTema(n.trim());
+          onChange(id); setNuevo(false); setN('');
+        }}>Guardar</button>
+        <button className="btn btn-s btn-mini" style={{flexShrink:0}} onClick={()=>{setNuevo(false); setN('');}}>×</button>
+      </div>
+    );
+  }
+  return (
+    <div style={{display:'flex', gap:6}}>
+      <select value={value||''} onChange={e=>onChange(e.target.value)}>
+        <option value="">Elegir tema…</option>
+        {temas.map(t=><option key={t.id} value={t.id}>{t.nombre}</option>)}
+      </select>
+      <button className="btn btn-s btn-mini" style={{flexShrink:0}} onClick={()=>setNuevo(true)}>+ Tema</button>
+    </div>
+  );
+}
+
+/* ============================================================
+   LOGIN
+   ============================================================ */
+function Login({usuarios, onEntrar}){
+  const [sel, setSel] = useState(null);
+  const [pin, setPin] = useState('');
+  const [err, setErr] = useState(false);
+
+  const tecla = d => {
+    if(!sel) return;
+    const nuevo = (pin + d).slice(0,4);
+    setPin(nuevo);
+    if(nuevo.length === 4){
+      const u = usuarios.find(x=>x.id===sel);
+      if(u && u.pin === nuevo){ onEntrar(u); }
+      else { setErr(true); setTimeout(()=>{ setPin(''); setErr(false); }, 450); }
+    }
+  };
+
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <img className="marca-img marca-img-login" src={LOGO_URI} alt="FANATICARTE"/>
+        <div className="login-sub">Sistema de gestión</div>
+        <div className="login-users">
+          {usuarios.map(u=>(
+            <button key={u.id} className={'login-user'+(sel===u.id?' sel':'')} onClick={()=>{setSel(u.id); setPin('');}}>
+              <div className="avatar">{u.nombre.slice(0,2).toUpperCase()}</div>
+              <div><div className="lu-n">{u.nombre}</div><div className="lu-r">{u.rol}</div></div>
+            </button>
+          ))}
+        </div>
+        {sel && <>
+          <div className="pin-row">
+            {[0,1,2,3].map(i=><div key={i} className={'pin-dot'+(pin.length>i?' on':'')} style={err?{borderColor:'var(--rojo)',background:pin.length>i?'var(--rojo)':'#fff'}:{}}/>)}
+          </div>
+          <div className="pin-pad">
+            {[1,2,3,4,5,6,7,8,9].map(n=><button key={n} className="pin-key" onClick={()=>tecla(String(n))}>{n}</button>)}
+            <div/>
+            <button className="pin-key" onClick={()=>tecla('0')}>0</button>
+            <button className="pin-key" onClick={()=>setPin(pin.slice(0,-1))}>←</button>
+          </div>
+        </>}
+        <div className="demo-note">Modo demo — PIN de <b>Charly: 1234</b> · <b>Raúl: 2222</b></div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB HOY
+   ============================================================ */
+function TabHoy({pedidos, ventas, gastos, clientes, productos, ir}){
+  const hoy = hoyISO();
+  const activos = pedidos.filter(p=>p.estado!=='entregado');
+  const urgentes = activos.filter(p=>diasPara(p.entrega)<0);
+  const paraHoy  = activos.filter(p=>diasPara(p.entrega)===0);
+  const ventasHoy = ventas.filter(v=>v.fecha===hoy);
+  const pagosHoy = pedidos.flatMap(p=>(p.pagos||[]).filter(x=>x.fecha===hoy).map(x=>x.monto)).reduce((a,b)=>a+b,0);
+  const ingresoHoy = ventasHoy.reduce((s,v)=>s+v.total,0) + pagosHoy;
+  const gastosHoy = gastos.filter(g=>g.fecha===hoy).reduce((s,g)=>s+g.monto,0);
+
+  const nomCliente = p => p.destino==='stock' ? 'Producción para stock' : (clientes.find(c=>c.id===p.clienteId)?.nombre || p.clienteNombre || 'Cliente');
+
+  return (
+    <div>
+      <div className="titulo">Hoy</div>
+      <div className="subtitulo">{new Date().toLocaleDateString('es-MX',{weekday:'long', day:'numeric', month:'long'})}</div>
+      <div className="grid4" style={{marginBottom:16}}>
+        <div className="stat"><div className="s-l">Ingresos hoy</div><div className="s-v">{dinero(ingresoHoy)}</div><div className="s-x">{ventasHoy.length} ventas POS</div></div>
+        <div className="stat"><div className="s-l">Gastos hoy</div><div className="s-v">{dinero(gastosHoy)}</div></div>
+        <div className="stat"><div className="s-l">Para entregar hoy</div><div className="s-v">{paraHoy.length}</div></div>
+        <div className="stat" style={urgentes.length?{borderColor:'var(--rojo)'}:{}}><div className="s-l" style={urgentes.length?{color:'var(--rojo)'}:{}}>Atrasados</div><div className="s-v" style={urgentes.length?{color:'var(--rojo)'}:{}}>{urgentes.length}</div></div>
+      </div>
+
+      {(urgentes.length>0 || paraHoy.length>0) &&
+        <div className="card">
+          <div className="card-h">Requieren atención <button className="btn btn-s btn-mini" onClick={()=>ir('flujo')}>Ir al flujo</button></div>
+          {[...urgentes, ...paraHoy].map(p=>(
+            <div key={p.id} className={'pedido-card '+(diasPara(p.entrega)<0?'urgente':'hoy')} style={{marginBottom:8}}>
+              <div className="pc-top">
+                <div>
+                  <span className="pc-folio">#{p.folio}</span>
+                  <div className="pc-cliente">{nomCliente(p)}</div>
+                </div>
+                <span className={'tag '+(diasPara(p.entrega)<0?'tag-rojo':'tag-am')}>{diasPara(p.entrega)<0?'Atrasado':'Entrega hoy'}</span>
+              </div>
+              <div className="pc-fecha">{p.items.length} producto{p.items.length!==1?'s':''} · entrega {fFecha(p.entrega)}</div>
+            </div>
+          ))}
+        </div>
+      }
+      <div className="card">
+        <div className="card-h">Acciones rápidas</div>
+        <div className="grid3">
+          <button className="btn btn-p btn-block" onClick={()=>ir('pedido')}>Nuevo pedido</button>
+          <button className="btn btn-am btn-block" onClick={()=>ir('pos')}>Vender de stock</button>
+          <button className="btn btn-s btn-block" onClick={()=>ir('gastos')}>Registrar gasto</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB NUEVO PEDIDO
+   ============================================================ */
+function TabPedido({productos, materiales, temas, crearTema, clientes, setClientes, crearPedido, editar, setEditar, avisar}){
+  const vacio = () => ({id:uid(), prodId:'', temaId:'', imagen:null, tBastidor:false, tImagen:false});
+  const [items, setItems] = useState(editar ? editar.items.map(i=>({...i})) : [vacio()]);
+  const [clienteId, setClienteId] = useState(editar?.clienteId || '');
+  const [destino, setDestino] = useState(editar?.destino || 'cliente');
+  const [entrega, setEntrega] = useState(editar?.entrega || manana(3));
+  const [descuento, setDescuento] = useState(editar?.descuento || 0);
+  const [anticipo, setAnticipo] = useState(editar?.anticipo || 0);
+  const [metodoAnt, setMetodoAnt] = useState(editar?.metodoAnticipo || 'Efectivo');
+  const [conEnvio, setConEnvio] = useState(!!editar?.envio);
+  const [envio, setEnvio] = useState(editar?.envio || {ciudad:'', direccion:'', paqueteria:'', guia:null});
+  const [nuevoCliente, setNuevoCliente] = useState(false);
+  const [nc, setNc] = useState({nombre:'', telefono:'', ciudad:'', comentarios:''});
+
+  const setItem = (id, patch) => setItems(items.map(i=>i.id===id?{...i,...patch}:i));
+  const subtotal = items.reduce((s,i)=>{ const p=prodDe(i.prodId, productos); return s + (p?p.precio:0); },0);
+  const total = destino==='stock' ? 0 : Math.round(subtotal * (1 - descuento/100));
+  const cliente = clientes.find(c=>c.id===clienteId);
+
+  const guardarCliente = () => {
+    if(!nc.nombre) return;
+    const c = {id:uid(), ...nc};
+    setClientes([...clientes, c]);
+    setClienteId(c.id);
+    setNuevoCliente(false);
+    setNc({nombre:'', telefono:'', ciudad:'', comentarios:''});
+  };
+
+  const confirmar = () => {
+    const validos = items.filter(i=>i.prodId);
+    if(!validos.length){ avisar('Agrega al menos un producto'); return; }
+    if(validos.some(i=>!i.temaId)){ avisar('Selecciona el tema de cada producto'); return; }
+    if(destino==='cliente' && !clienteId){ avisar('Selecciona un cliente'); return; }
+    crearPedido({
+      clienteId: destino==='stock' ? null : clienteId,
+      clienteNombre: destino==='stock' ? 'Stock FANATICARTE' : undefined,
+      destino, entrega, descuento:Number(descuento)||0,
+      anticipo:Number(anticipo)||0, metodoAnticipo:metodoAnt,
+      items: validos, total,
+      envio: (conEnvio && destino==='cliente') ? envio : null,
+    }, editar);
+    setItems([vacio()]); setClienteId(''); setDescuento(0); setAnticipo(0); setConEnvio(false);
+    setEnvio({ciudad:'', direccion:'', paqueteria:'', guia:null});
+    if(editar) setEditar(null);
+  };
+
+  return (
+    <div>
+      <div className="titulo">{editar ? 'Editar pedido #' + editar.folio : 'Nuevo pedido'}</div>
+      <div className="subtitulo">{destino==='stock' ? 'Producción especial: al terminar se suma al inventario' : 'Cada producto lleva su tamaño y su imagen'}</div>
+
+      <div className="card">
+        <div className="card-h">Destino</div>
+        <div className="metodo-row" style={{gridTemplateColumns:'1fr 1fr'}}>
+          <button className={'metodo-btn'+(destino==='cliente'?' on':'')} onClick={()=>setDestino('cliente')}>Pedido de cliente</button>
+          <button className={'metodo-btn'+(destino==='stock'?' on':'')} onClick={()=>setDestino('stock')}>Producción para stock</button>
+        </div>
+      </div>
+
+      {destino==='cliente' && <div className="card">
+        <div className="card-h">Cliente <button className="btn btn-s btn-mini" onClick={()=>setNuevoCliente(true)}>+ Nuevo cliente</button></div>
+        <select value={clienteId} onChange={e=>setClienteId(e.target.value)}>
+          <option value="">Seleccionar cliente…</option>
+          {clientes.map(c=><option key={c.id} value={c.id}>{c.nombre} · {c.telefono}</option>)}
+        </select>
+        {cliente && cliente.comentarios && <div className="envio-box" style={{marginTop:10}}><b>Preferencias</b>{cliente.comentarios}</div>}
+      </div>}
+
+      <div className="card">
+        <div className="card-h">Productos <button className="btn btn-s btn-mini" onClick={()=>setItems([...items, vacio()])}>+ Agregar producto</button></div>
+        {items.map(it=>{
+          const p = prodDe(it.prodId, productos);
+          return (
+            <div key={it.id} className="prod-line">
+              <label className="up-thumb" style={{marginBottom:0}}>
+                {it.imagen ? <img src={it.imagen} alt=""/> : 'Subir imagen'}
+                <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>setItem(it.id,{imagen:d})); }}/>
+              </label>
+              <div className="prod-line-campos">
+                <div>
+                  <label>Producto / tamaño</label>
+                  <select value={it.prodId} onChange={e=>setItem(it.id,{prodId:e.target.value})}>
+                    <option value="">Elegir…</option>
+                    {productos.filter(p=>p.activo).map(p=><option key={p.id} value={p.id}>{p.nombre} — {dinero(p.precio)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label>Tema</label>
+                  <SelectTema value={it.temaId} onChange={id=>setItem(it.id,{temaId:id})} temas={temas} crearTema={crearTema}/>
+                </div>
+              </div>
+              <button className="x-line" onClick={()=>setItems(items.length>1?items.filter(x=>x.id!==it.id):[vacio()])}>×</button>
+            </div>
+          );
+        })}
+      </div>
+
+      {destino==='cliente' && <>
+        <div className="card">
+          <div className="card-h">Entrega y pago</div>
+          <div className="grid3">
+            <div className="campo"><label>Fecha de entrega</label><input type="date" value={entrega} onChange={e=>setEntrega(e.target.value)}/></div>
+            <div className="campo"><label>Descuento %</label><input type="number" min="0" max="100" value={descuento} onChange={e=>setDescuento(e.target.value)}/></div>
+            <div className="campo"><label>Anticipo $</label><input type="number" min="0" value={anticipo} onChange={e=>setAnticipo(e.target.value)}/></div>
+          </div>
+          {Number(anticipo)>0 && <div className="campo"><label>Método del anticipo</label>
+            <div className="metodo-row">
+              {['Efectivo','Tarjeta','Transferencia'].map(m=>
+                <button key={m} className={'metodo-btn'+(metodoAnt===m?' on':'')} onClick={()=>setMetodoAnt(m)}>{m}</button>)}
+            </div>
+          </div>}
+        </div>
+
+        <div className="card">
+          <div className="card-h">Envío a otra ciudad
+            <label className="perm-item" style={{marginBottom:0}}><input type="checkbox" checked={conEnvio} onChange={e=>setConEnvio(e.target.checked)}/> Lleva envío</label>
+          </div>
+          {conEnvio && <div className="grid2">
+            <div className="campo"><label>Ciudad destino</label><input value={envio.ciudad} onChange={e=>setEnvio({...envio, ciudad:e.target.value})} placeholder="Mazatlán"/></div>
+            <div className="campo"><label>Paquetería</label><input value={envio.paqueteria} onChange={e=>setEnvio({...envio, paqueteria:e.target.value})} placeholder="Estafeta, DHL…"/></div>
+            <div className="campo" style={{gridColumn:'1 / -1'}}><label>Dirección</label><input value={envio.direccion} onChange={e=>setEnvio({...envio, direccion:e.target.value})} placeholder="Calle, colonia, CP"/></div>
+            <div className="campo" style={{gridColumn:'1 / -1'}}>
+              <label>Guía de envío (foto o captura)</label>
+              <label className="up-thumb" style={{width:'100%', height:90}}>
+                {envio.guia ? <img src={envio.guia} alt=""/> : 'Subir guía — también se puede cargar después desde el flujo'}
+                <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>setEnvio({...envio, guia:d})); }}/>
+              </label>
+            </div>
+          </div>}
+        </div>
+      </>}
+
+      <div className="total-box" style={{marginTop:14}}>
+        {destino==='cliente' ? <>
+          <div className="t-row"><span>Subtotal</span><span>{dinero(subtotal)}</span></div>
+          {descuento>0 && <div className="t-row"><span>Descuento {descuento}%</span><span>−{dinero(subtotal-total)}</span></div>}
+          {Number(anticipo)>0 && <div className="t-row"><span>Anticipo</span><span>−{dinero(anticipo)}</span></div>}
+          <div className="t-row big"><span>{Number(anticipo)>0?'Resta':'Total'}</span><span>{dinero(total - (Number(anticipo)||0))}</span></div>
+        </> : <div className="t-row big"><span>Producción interna</span><span>{items.filter(i=>i.prodId).length} pzas</span></div>}
+      </div>
+      <div style={{display:'flex', gap:10, marginTop:14}}>
+        {editar && <button className="btn btn-s" onClick={()=>setEditar(null)}>Cancelar edición</button>}
+        <button className="btn btn-p btn-block" onClick={confirmar}>{editar?'Guardar cambios':'Crear pedido'}</button>
+      </div>
+
+      {nuevoCliente && <Modal titulo="Nuevo cliente" onCerrar={()=>setNuevoCliente(false)}>
+        <div className="campo"><label>Nombre</label><input value={nc.nombre} onChange={e=>setNc({...nc,nombre:e.target.value})}/></div>
+        <div className="grid2">
+          <div className="campo"><label>Teléfono</label><input value={nc.telefono} onChange={e=>setNc({...nc,telefono:e.target.value})}/></div>
+          <div className="campo"><label>Ciudad</label><input value={nc.ciudad} onChange={e=>setNc({...nc,ciudad:e.target.value})}/></div>
+        </div>
+        <div className="campo"><label>Preferencias / comentarios</label><textarea rows="2" value={nc.comentarios} onChange={e=>setNc({...nc,comentarios:e.target.value})}/></div>
+        <button className="btn btn-p btn-block" onClick={guardarCliente}>Guardar cliente</button>
+      </Modal>}
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB FLUJO
+   ============================================================ */
+function TabFlujo({pedidos, setPedidos, clientes, productos, temas, cobrarYEntregar, terminarStock, editarPedido, avisar}){
+  const nomTema = id => (temas.find(t=>t.id===id)||{}).nombre || 'Sin tema';
+  const [guiaDe, setGuiaDe] = useState(null);
+  const activos = pedidos.filter(p=>p.estado!=='entregado');
+  const cols = [
+    {k:'urg', t:'Hoy y atrasados', filtro:p=>diasPara(p.entrega)<=0, urgente:true},
+    {k:'prox',t:'Próximos (1–3 días)', filtro:p=>diasPara(p.entrega)>=1 && diasPara(p.entrega)<=3},
+    {k:'desp',t:'Después', filtro:p=>diasPara(p.entrega)>3},
+  ];
+
+  const nomCliente = p => p.destino==='stock' ? 'Producción para stock' : (clientes.find(c=>c.id===p.clienteId)?.nombre || p.clienteNombre || 'Cliente');
+  const toggleTarea = (pid, iid, campo) => {
+    setPedidos(pedidos.map(p=>p.id!==pid?p:{...p, items:p.items.map(i=>i.id!==iid?i:{...i, [campo]:!i[campo]})}));
+  };
+  const listo = p => p.items.every(i=>i.tBastidor && i.tImagen);
+
+  const subirGuia = (p, data) => {
+    setPedidos(pedidos.map(x=>x.id!==p.id?x:{...x, envio:{...x.envio, guia:data}}));
+    avisar('Guía guardada en el pedido <b>#'+p.folio+'</b>');
+  };
+
+  return (
+    <div>
+      <div className="titulo">Flujo de trabajo</div>
+      <div className="subtitulo">Dos tareas por producto: bastidor e imagen. Al completar todo, el pedido se puede entregar.</div>
+      <div className="flujo-cols">
+        {cols.map(col=>{
+          const lista = activos.filter(col.filtro).sort((a,b)=>a.entrega<b.entrega?-1:1);
+          return (
+            <div key={col.k}>
+              <div className={'fcol-h'+(col.urgente?' urgente':'')}>{col.t}<span className="fc-n">{lista.length}</span></div>
+              {lista.length===0 && <Vacio t="Sin pedidos" x="Nada pendiente en este bloque"/>}
+              {lista.map(p=>{
+                const d = diasPara(p.entrega);
+                const cls = d<0?'urgente':(d===0?'hoy':(listo(p)?'ok':''));
+                return (
+                  <div key={p.id} className={'pedido-card '+cls}>
+                    <div className="pc-top">
+                      <div>
+                        <span className="pc-folio">#{p.folio}</span>
+                        {p.destino==='stock' && <span className="tag tag-negro" style={{marginLeft:7}}>Stock</span>}
+                        {p.envio && <span className="tag tag-azul" style={{marginLeft:7}}>Envío</span>}
+                        <div className="pc-cliente">{nomCliente(p)}</div>
+                        <div className="pc-fecha">Entrega {fFecha(p.entrega)} {d<0?'· '+Math.abs(d)+'d atrasado':(d===0?'· hoy':'· en '+d+'d')}</div>
+                      </div>
+                      <button className="btn btn-s btn-mini" onClick={()=>editarPedido(p)}>Editar</button>
+                    </div>
+                    <div className="pc-items">
+                      {p.items.map(i=>{
+                        const prod = prodDe(i.prodId, productos);
+                        return (
+                          <div key={i.id} className="item-row">
+                            {i.imagen ? <img className="item-thumb" src={i.imagen} alt=""/> : <div className="item-thumb-ph">Sin img</div>}
+                            <div className="item-info">
+                              <div className="item-t">{nomTema(i.temaId)}</div>
+                              <div className="item-m">{prod ? prod.tipo + ' ' + prod.medida : '—'}</div>
+                            </div>
+                            <div className="checks">
+                              <button className={'chk'+(i.tBastidor?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tBastidor')}>Bastidor</button>
+                              <button className={'chk'+(i.tImagen?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tImagen')}>Imagen</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {p.envio && <div className="envio-box">
+                      <b>Envío · {p.envio.paqueteria || 'Paquetería por definir'}</b>
+                      {p.envio.ciudad}{p.envio.direccion?' — '+p.envio.direccion:''}
+                      {p.envio.guia
+                        ? <img className="guia-img" src={p.envio.guia} alt="Guía"/>
+                        : <label className="btn btn-s btn-mini" style={{marginTop:7, display:'inline-flex'}}>Subir guía
+                            <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>subirGuia(p,d)); }}/>
+                          </label>}
+                    </div>}
+                    <div className="pc-foot">
+                      {p.destino==='cliente' && <span style={{fontSize:12.5, color:'var(--gris-7)'}}>
+                        Total {dinero(p.total)} · pagado {dinero((p.pagos||[]).reduce((s,x)=>s+x.monto,0))}
+                      </span>}
+                      {listo(p)
+                        ? (p.destino==='stock'
+                            ? <button className="btn btn-am btn-mini" onClick={()=>terminarStock(p)}>Sumar al inventario</button>
+                            : <button className="btn btn-p btn-mini" onClick={()=>cobrarYEntregar(p)}>Entregar</button>)
+                        : <span className="tag tag-gris">{p.items.filter(i=>i.tBastidor&&i.tImagen).length}/{p.items.length} listos</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB PEDIDOS (listado completo)
+   ============================================================ */
+function TabPedidos({pedidos, setPedidos, clientes, productos, temas, avisar}){
+  const [busca, setBusca] = useState('');
+  const [fEstado, setFEstado] = useState('');
+  const [fSaldo, setFSaldo] = useState('');
+  const [ver, setVer] = useState(null);
+
+  const nomCliente = p => p.destino==='stock' ? 'Producción para stock' : (clientes.find(c=>c.id===p.clienteId)?.nombre || p.clienteNombre || 'Cliente');
+  const pagadoDe = p => (p.pagos||[]).reduce((s,x)=>s+x.monto,0);
+  const saldoDe = p => p.total - pagadoDe(p);
+
+  const filtrados = pedidos.filter(p=>{
+    if(fEstado && p.estado!==fEstado) return false;
+    if(fSaldo==='pendiente' && !(p.destino==='cliente' && saldoDe(p)>0)) return false;
+    if(fSaldo==='saldado' && !(p.destino==='cliente' && saldoDe(p)<=0)) return false;
+    if(busca){
+      const txt = (String(p.folio)+' '+nomCliente(p)).toLowerCase();
+      if(!txt.includes(busca.toLowerCase())) return false;
+    }
+    return true;
+  }).sort((a,b)=>b.folio-a.folio);
+
+  const registrarAbono = (pedido, monto, metodo) => {
+    setPedidos(pedidos.map(x=>x.id!==pedido.id?x:{...x, pagos:[...(x.pagos||[]), {monto, metodo, fecha:hoyISO()}]}));
+    avisar('Abono de <b>'+dinero(monto)+'</b> registrado en #'+pedido.folio);
+    setVer(null);
+  };
+
+  return (
+    <div>
+      <div className="campo"><input placeholder="Buscar folio o cliente…" value={busca} onChange={e=>setBusca(e.target.value)}/></div>
+      <div className="chips-rapidos" style={{marginBottom:8}}>
+        {[['','Todos'],['produccion','En producción'],['entregado','Entregados']].map(([k,t])=>
+          <button key={k} className={'chip-f'+(fEstado===k?' on':'')} onClick={()=>setFEstado(k)}>{t}</button>)}
+      </div>
+      <div className="chips-rapidos" style={{marginBottom:14}}>
+        {[['','Cualquier saldo'],['pendiente','Con saldo pendiente'],['saldado','Saldado']].map(([k,t])=>
+          <button key={k} className={'chip-f'+(fSaldo===k?' on':'')} onClick={()=>setFSaldo(k)}>{t}</button>)}
+      </div>
+      <div className="card">
+        <div style={{overflowX:'auto'}}>
+        <table>
+          <thead><tr><th>Folio</th><th>Cliente</th><th>Entrega</th><th>Estado</th><th className="td-num">Total</th><th className="td-num">Saldo</th><th></th></tr></thead>
+          <tbody>
+            {filtrados.map(p=>{
+              const saldo = saldoDe(p);
+              return (
+                <tr key={p.id}>
+                  <td style={{fontWeight:700}}>#{p.folio}</td>
+                  <td>{nomCliente(p)}{p.destino==='stock' && <span className="tag tag-negro" style={{marginLeft:6}}>Stock</span>}{p.envio && <span className="tag tag-azul" style={{marginLeft:6}}>Envío</span>}</td>
+                  <td>{fFecha(p.entrega)}</td>
+                  <td><span className={'tag '+(p.estado==='entregado'?'tag-verde':'tag-am')}>{p.estado==='entregado'?'Entregado':'Producción'}</span></td>
+                  <td className="td-num">{p.destino==='cliente'?dinero(p.total):'—'}</td>
+                  <td className="td-num">{p.destino!=='cliente' ? '—' : (saldo>0 ? <span style={{color:'var(--rojo)', fontWeight:700}}>{dinero(saldo)}</span> : <span className="tag tag-verde">Saldado</span>)}</td>
+                  <td style={{textAlign:'right'}}><button className="btn btn-s btn-mini" onClick={()=>setVer(p)}>Ver</button></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        </div>
+        {filtrados.length===0 && <Vacio t="Sin resultados" x="No hay pedidos con esos filtros"/>}
+      </div>
+      {ver && <ModalDetallePedido pedido={ver} clientes={clientes} productos={productos} temas={temas} onCerrar={()=>setVer(null)} onAbono={(monto,metodo)=>registrarAbono(ver, monto, metodo)}/>}
+    </div>
+  );
+}
+
+function ModalDetallePedido({pedido, clientes, productos, temas, onCerrar, onAbono}){
+  const [monto, setMonto] = useState('');
+  const [metodo, setMetodo] = useState('Efectivo');
+  const pagado = (pedido.pagos||[]).reduce((s,x)=>s+x.monto,0);
+  const saldo = pedido.total - pagado;
+  const nomCliente = clientes.find(c=>c.id===pedido.clienteId)?.nombre || pedido.clienteNombre || 'Cliente';
+  const nomTema = id => (temas.find(t=>t.id===id)||{}).nombre || 'Sin tema';
+
+  return (
+    <Modal titulo={'Pedido #'+pedido.folio} onCerrar={onCerrar}>
+      <div className="grid2" style={{marginBottom:12}}>
+        <div className="stat"><div className="s-l">Cliente</div><div style={{fontWeight:600, marginTop:3}}>{nomCliente}</div></div>
+        <div className="stat"><div className="s-l">Entrega</div><div style={{fontWeight:600, marginTop:3}}>{fFecha(pedido.entrega)}</div></div>
+      </div>
+      <div className="card-h">Productos</div>
+      {pedido.items.map(i=>{
+        const p = prodDe(i.prodId, productos);
+        return (
+          <div key={i.id} className="item-row" style={{marginBottom:8}}>
+            {i.imagen ? <img className="item-thumb" src={i.imagen} alt=""/> : <div className="item-thumb-ph">Sin img</div>}
+            <div className="item-info">
+              <div className="item-t">{nomTema(i.temaId)}</div>
+              <div className="item-m">{p ? p.tipo+' '+p.medida : '—'}</div>
+            </div>
+          </div>
+        );
+      })}
+      {pedido.envio && <div className="envio-box" style={{marginTop:4}}>
+        <b>Envío · {pedido.envio.paqueteria || 'Paquetería por definir'}</b>
+        {pedido.envio.ciudad}{pedido.envio.direccion?' — '+pedido.envio.direccion:''}
+        {pedido.envio.guia && <img className="guia-img" src={pedido.envio.guia} alt="Guía"/>}
+      </div>}
+      {pedido.destino==='cliente' && <>
+        <div className="total-box" style={{margin:'14px 0'}}>
+          <div className="t-row"><span>Total</span><span>{dinero(pedido.total)}</span></div>
+          <div className="t-row"><span>Pagado</span><span>−{dinero(pagado)}</span></div>
+          <div className="t-row big"><span>Saldo</span><span>{dinero(saldo)}</span></div>
+        </div>
+        {(pedido.pagos||[]).length>0 && <>
+          <div className="card-h">Pagos registrados</div>
+          {pedido.pagos.map((x,ix)=>(
+            <div key={ix} className="carrito-line"><div>{fFecha(x.fecha)} · {x.metodo}</div><div style={{fontWeight:600}}>{dinero(x.monto)}</div></div>
+          ))}
+        </>}
+        {saldo>0 && <div className="card" style={{marginTop:12}}>
+          <div className="card-h">Registrar abono</div>
+          <div className="grid2">
+            <div className="campo"><label>Monto</label><input type="number" min="0" max={saldo} value={monto} onChange={e=>setMonto(e.target.value)}/></div>
+            <div className="campo"><label>Método</label>
+              <div className="metodo-row">
+                {['Efectivo','Tarjeta','Transferencia'].map(m=>
+                  <button key={m} className={'metodo-btn'+(metodo===m?' on':'')} onClick={()=>setMetodo(m)}>{m==='Transferencia'?'Transf.':m}</button>)}
+              </div>
+            </div>
+          </div>
+          <button className="btn btn-p btn-block" onClick={()=>{ if(Number(monto)>0) onAbono(Number(monto), metodo); }} disabled={!monto || Number(monto)<=0}>Registrar abono</button>
+        </div>}
+      </>}
+    </Modal>
+  );
+}
+
+/* ============================================================
+   TAB VENTAS (historial: pedidos + ventas de stock)
+   ============================================================ */
+function TabVentas({pedidos, setPedidos, clientes, productos, temas, ventas, avisar}){
+  const [sub, setSub] = useState('pedidos');
+  return (
+    <div>
+      <div className="titulo">Ventas</div>
+      <div className="subtitulo">Historial completo de pedidos y ventas de mostrador</div>
+      <div className="subnav">
+        <button className={'subnav-btn'+(sub==='pedidos'?' on':'')} onClick={()=>setSub('pedidos')}>Pedidos</button>
+        <button className={'subnav-btn'+(sub==='stock'?' on':'')} onClick={()=>setSub('stock')}>Ventas de stock</button>
+      </div>
+      {sub==='pedidos' && <TabPedidos pedidos={pedidos} setPedidos={setPedidos} clientes={clientes} productos={productos} temas={temas} avisar={avisar}/>}
+      {sub==='stock'   && <VentasPosLista ventas={ventas} productos={productos} temas={temas}/>}
+    </div>
+  );
+}
+
+function VentasPosLista({ventas, productos, temas}){
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [abiertas, setAbiertas] = useState({});
+  const nomTema = id => (temas.find(t=>t.id===id)||{}).nombre || 'Sin tema';
+
+  const filtradas = ventas.filter(v=>{
+    if(desde && v.fecha < desde) return false;
+    if(hasta && v.fecha > hasta) return false;
+    return true;
+  });
+
+  const porFecha = {};
+  filtradas.forEach(v=>{ (porFecha[v.fecha] = porFecha[v.fecha] || []).push(v); });
+  const fechas = Object.keys(porFecha).sort((a,b)=>a<b?1:-1);
+  const totalGeneral = filtradas.reduce((s,v)=>s+v.total,0);
+
+  return (
+    <div>
+      <div className="filtros-fecha">
+        <div className="campo"><label>Desde</label><input type="date" value={desde} onChange={e=>setDesde(e.target.value)}/></div>
+        <div className="campo"><label>Hasta</label><input type="date" value={hasta} onChange={e=>setHasta(e.target.value)}/></div>
+        {(desde||hasta) && <button className="btn btn-s btn-mini" onClick={()=>{setDesde('');setHasta('');}}>Limpiar</button>}
+      </div>
+      <div className="grid2" style={{marginBottom:14}}>
+        <div className="stat"><div className="s-l">Total del periodo</div><div className="s-v">{dinero(totalGeneral)}</div></div>
+        <div className="stat"><div className="s-l">Ventas</div><div className="s-v">{filtradas.length}</div></div>
+      </div>
+      {fechas.length===0 && <div className="card"><Vacio t="Sin ventas" x="No hay ventas de stock en este rango"/></div>}
+      {fechas.map(f=>{
+        const lista = porFecha[f];
+        const totalDia = lista.reduce((s,v)=>s+v.total,0);
+        return (
+          <div key={f} className="card">
+            <div className="card-h">{fFecha(f)}<span className="tag tag-am">{dinero(totalDia)} · {lista.length} venta{lista.length!==1?'s':''}</span></div>
+            {lista.map(v=>{
+              const abierta = !!abiertas[v.id];
+              const pzas = v.items.reduce((s,i)=>s+i.cantidad,0);
+              return (
+                <div key={v.id} style={{border:'1px solid var(--gris-2)', borderRadius:8, marginBottom:8, overflow:'hidden'}}>
+                  <button style={{width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 13px', background:'var(--fondo)', textAlign:'left', gap:8}} onClick={()=>setAbiertas({...abiertas, [v.id]:!abierta})}>
+                    <span>{pzas} pza{pzas!==1?'s':''} · <span style={{color:'var(--gris-5)'}}>{v.metodo}</span>{v.descuento>0 && <span className="tag tag-gris" style={{marginLeft:6}}>−{v.descuento}%</span>}</span>
+                    <span style={{fontWeight:700}}>{dinero(v.total)}</span>
+                  </button>
+                  {abierta && <div style={{padding:'4px 13px 10px'}}>
+                    {v.items.map((i,ix)=>{
+                      const p = prodDe(i.prodId, productos);
+                      return (
+                        <div key={ix} className="carrito-line">
+                          <div>{nomTema(i.temaId)} <span style={{color:'var(--gris-5)'}}>· {p?p.tipo+' '+p.medida:'—'}</span></div>
+                          <div style={{fontWeight:600}}>{i.cantidad} × {dinero(i.precio)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB POS (venta de stock)
+   ============================================================ */
+function TabPos({stock, productos, temas, venderStock}){
+  const [carrito, setCarrito] = useState([]);
+  const [metodo, setMetodo] = useState('Efectivo');
+  const [descuento, setDescuento] = useState(0);
+  const [prodSel, setProdSel] = useState(null);
+
+  const nomTema = id => (temas.find(t=>t.id===id)||{}).nombre || 'Sin tema';
+  const prodsConStock = productos.filter(p => stock.some(s=>s.prodId===p.id && s.cantidad>0));
+  const totalDe = prodId => stock.filter(s=>s.prodId===prodId).reduce((s,x)=>s+x.cantidad,0);
+  const temasDeProd = prodId => stock.filter(s=>s.prodId===prodId && s.cantidad>0);
+
+  const enCarrito = id => carrito.find(c=>c.stockId===id);
+  const agregar = s => {
+    const p = prodDe(s.prodId, productos);
+    const ex = enCarrito(s.id);
+    if(ex){ if(ex.cantidad < s.cantidad) setCarrito(carrito.map(c=>c.stockId===s.id?{...c, cantidad:c.cantidad+1}:c)); }
+    else setCarrito([...carrito, {stockId:s.id, prodId:s.prodId, temaId:s.temaId, precio:p?p.precio:0, cantidad:1, max:s.cantidad}]);
+  };
+  const cambiar = (id, delta) => {
+    setCarrito(carrito.map(c=>c.stockId===id?{...c, cantidad:Math.max(0, Math.min(c.max, c.cantidad+delta))}:c).filter(c=>c.cantidad>0));
+  };
+  const subtotal = carrito.reduce((s,c)=>s+c.precio*c.cantidad,0);
+  const total = Math.round(subtotal*(1-descuento/100));
+
+  const cobrar = () => {
+    if(!carrito.length) return;
+    venderStock(carrito, total, Number(descuento)||0, metodo);
+    setCarrito([]); setDescuento(0);
+  };
+
+  const prodActual = prodSel ? prodDe(prodSel, productos) : null;
+
+  return (
+    <div>
+      <div className="titulo">Venta de stock</div>
+      <div className="subtitulo">Primero el tamaño, después el tema exacto — así se descuenta la pieza correcta del inventario</div>
+
+      {!prodSel ? (
+        <div className="pos-grid" style={{marginBottom:16}}>
+          {prodsConStock.map(p=>(
+            <button key={p.id} className="pos-item" onClick={()=>setProdSel(p.id)}>
+              <div className="pi-t">{p.nombre}</div>
+              <div className="pi-m">{p.tipo}</div>
+              <div className="pi-p">{dinero(p.precio)}</div>
+              <div className="pi-s">{totalDe(p.id)} en stock</div>
+            </button>
+          ))}
+          {prodsConStock.length===0 && <Vacio t="Sin stock disponible" x="Aún no hay piezas en inventario para vender"/>}
+        </div>
+      ) : (
+        <div style={{marginBottom:16}}>
+          <button className="btn btn-s btn-mini" style={{marginBottom:10}} onClick={()=>setProdSel(null)}>← Volver a tamaños</button>
+          <div className="subtitulo" style={{marginTop:-4}}>{prodActual?.nombre} — elige el tema</div>
+          <div className="pos-grid">
+            {temasDeProd(prodSel).map(s=>{
+              const restante = s.cantidad - (enCarrito(s.id)?.cantidad||0);
+              return (
+                <button key={s.id} className={'pos-item'+(restante<=0?' agotado':'')} onClick={()=>agregar(s)}>
+                  <div className="pi-t">{nomTema(s.temaId)}</div>
+                  <div className="pi-p">{dinero(prodActual?prodActual.precio:0)}</div>
+                  <div className="pi-s">{restante} en stock</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {carrito.length>0 && <div className="card">
+        <div className="card-h">Carrito</div>
+        {carrito.map(c=>(
+          <div key={c.stockId} className="carrito-line">
+            <div style={{flex:1}}>{nomTema(c.temaId)} <span style={{color:'var(--gris-5)'}}>· {prodDe(c.prodId, productos)?.medida}</span></div>
+            <div className="cant-ctrl">
+              <button className="cant-btn" onClick={()=>cambiar(c.stockId,-1)}>−</button>
+              <b>{c.cantidad}</b>
+              <button className="cant-btn" onClick={()=>cambiar(c.stockId,1)}>+</button>
+            </div>
+            <div style={{width:70, textAlign:'right', fontWeight:600}}>{dinero(c.precio*c.cantidad)}</div>
+          </div>
+        ))}
+        <div className="grid2" style={{marginTop:12}}>
+          <div className="campo"><label>Descuento %</label><input type="number" min="0" max="100" value={descuento} onChange={e=>setDescuento(e.target.value)}/></div>
+          <div className="campo"><label>Método de pago</label>
+            <div className="metodo-row">
+              {['Efectivo','Tarjeta','Transferencia'].map(m=>
+                <button key={m} className={'metodo-btn'+(metodo===m?' on':'')} onClick={()=>setMetodo(m)}>{m==='Transferencia'?'Transf.':m}</button>)}
+            </div>
+          </div>
+        </div>
+        <div className="total-box">
+          {descuento>0 && <div className="t-row"><span>Subtotal</span><span>{dinero(subtotal)}</span></div>}
+          <div className="t-row big"><span>Total</span><span>{dinero(total)}</span></div>
+        </div>
+        <button className="btn btn-p btn-block" style={{marginTop:12}} onClick={cobrar}>Cobrar {dinero(total)}</button>
+      </div>}
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB INVENTARIO
+   ============================================================ */
+function TabInventario({stock, setStock, productos, temas, crearTema, ir}){
+  const [modal, setModal] = useState(false);
+  const [nuevo, setNuevo] = useState({prodId:'', temaId:'', cantidad:1});
+  const [abiertos, setAbiertos] = useState({});
+
+  const agregar = () => {
+    if(!nuevo.prodId || !nuevo.temaId) return;
+    const ex = stock.find(s=>s.prodId===nuevo.prodId && s.temaId===nuevo.temaId);
+    if(ex) setStock(stock.map(s=>s.id===ex.id?{...s, cantidad:s.cantidad+Number(nuevo.cantidad)}:s));
+    else setStock([...stock, {id:uid(), prodId:nuevo.prodId, temaId:nuevo.temaId, cantidad:Number(nuevo.cantidad)}]);
+    setModal(false); setNuevo({prodId:'', temaId:'', cantidad:1});
+  };
+  const ajustar = (id, delta) => setStock(stock.map(s=>s.id===id?{...s, cantidad:Math.max(0, s.cantidad+delta)}:s));
+
+  const totalPzas = stock.reduce((s,x)=>s+x.cantidad,0);
+  const valor = stock.reduce((s,x)=>{ const p=prodDe(x.prodId, productos); return s+(p?p.precio:0)*x.cantidad; },0);
+  const nomTema = id => (temas.find(t=>t.id===id)||{}).nombre || 'Sin tema';
+  const grupos = productos.filter(p=>stock.some(s=>s.prodId===p.id && s.cantidad>0));
+
+  return (
+    <div>
+      <div className="titulo">Inventario de tienda</div>
+      <div className="subtitulo">Piezas terminadas por tamaño, agrupadas y desglosadas por tema</div>
+      <div className="grid3" style={{marginBottom:14}}>
+        <div className="stat"><div className="s-l">Piezas en stock</div><div className="s-v">{totalPzas}</div></div>
+        <div className="stat"><div className="s-l">Valor a precio de venta</div><div className="s-v">{dinero(valor)}</div></div>
+        <div className="stat"><div className="s-l">Variantes</div><div className="s-v">{stock.filter(s=>s.cantidad>0).length}</div></div>
+      </div>
+      <div className="card">
+        <div className="card-h">Existencias por producto
+          <div style={{display:'flex', gap:8}}>
+            <button className="btn btn-s btn-mini" onClick={()=>ir('pedido')}>Producir para stock</button>
+            <button className="btn btn-p btn-mini" onClick={()=>setModal(true)}>+ Entrada manual</button>
+          </div>
+        </div>
+        {grupos.map(p=>{
+          const variantes = stock.filter(s=>s.prodId===p.id && s.cantidad>0);
+          const totalVar = variantes.reduce((s,x)=>s+x.cantidad,0);
+          const abierto = !!abiertos[p.id];
+          return (
+            <div key={p.id} style={{border:'1px solid var(--gris-2)', borderRadius:8, marginBottom:8, overflow:'hidden'}}>
+              <button style={{width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'11px 13px', background:'var(--fondo)', textAlign:'left'}} onClick={()=>setAbiertos({...abiertos, [p.id]:!abierto})}>
+                <span style={{fontWeight:600}}>{p.nombre} <span style={{color:'var(--gris-5)', fontWeight:400}}>· {variantes.length} tema{variantes.length!==1?'s':''}</span></span>
+                <span className="tag tag-am">{totalVar} pzas</span>
+              </button>
+              {abierto && <div style={{padding:'6px 13px 10px'}}>
+                {variantes.map(s=>(
+                  <div key={s.id} className="carrito-line">
+                    <div>{nomTema(s.temaId)}</div>
+                    <div style={{display:'flex', alignItems:'center', gap:10}}>
+                      <button className="cant-btn" onClick={()=>ajustar(s.id,-1)}>−</button>
+                      <b>{s.cantidad}</b>
+                      <button className="cant-btn" onClick={()=>ajustar(s.id,1)}>+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>}
+            </div>
+          );
+        })}
+        {grupos.length===0 && <Vacio t="Inventario vacío" x="Produce para stock desde Nuevo Pedido o registra una entrada manual"/>}
+      </div>
+      {modal && <Modal titulo="Entrada manual a stock" onCerrar={()=>setModal(false)}>
+        <div className="campo"><label>Producto</label>
+          <select value={nuevo.prodId} onChange={e=>setNuevo({...nuevo, prodId:e.target.value})}>
+            <option value="">Elegir…</option>
+            {productos.filter(p=>p.activo).map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </select>
+        </div>
+        <div className="campo"><label>Tema</label>
+          <SelectTema value={nuevo.temaId} onChange={id=>setNuevo({...nuevo, temaId:id})} temas={temas} crearTema={crearTema}/>
+        </div>
+        <div className="campo"><label>Cantidad</label><input type="number" min="1" value={nuevo.cantidad} onChange={e=>setNuevo({...nuevo, cantidad:e.target.value})}/></div>
+        <button className="btn btn-p btn-block" onClick={agregar} disabled={!nuevo.prodId || !nuevo.temaId}>Agregar a stock</button>
+      </Modal>}
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB CATALOGO (productos + receta de materiales)
+   ============================================================ */
+function TabCatalogo({productos, setProductos, materiales}){
+  const [editando, setEditando] = useState(null);
+
+  const guardar = p => {
+    if(p.id) setProductos(productos.map(x=>x.id===p.id?p:x));
+    else setProductos([...productos, {...p, id:uid(), activo:true}]);
+    setEditando(null);
+  };
+
+  return (
+    <div>
+      <div className="subtitulo">Cada producto lleva su receta de materiales: de ahí sale el costo de producción y la utilidad</div>
+      <div className="card">
+        <div className="card-h">Productos <button className="btn btn-p btn-mini" onClick={()=>setEditando({tipo:'Canvas', nombre:'', medida:'', receta:[], precio:0})}>+ Nuevo producto</button></div>
+        <div style={{overflowX:'auto'}}>
+        <table>
+          <thead><tr><th>Producto</th><th>Tipo</th><th className="td-num">Costo prod.</th><th className="td-num">Precio</th><th className="td-num">Utilidad</th><th></th></tr></thead>
+          <tbody>
+            {productos.map(p=>{
+              const costo = costoProduccion(p, materiales);
+              const util = p.precio - costo;
+              const margen = p.precio>0 ? Math.round(util/p.precio*100) : 0;
+              return (
+                <tr key={p.id} style={p.activo?{}:{opacity:.45}}>
+                  <td style={{fontWeight:600}}>{p.nombre}</td>
+                  <td><span className="tag tag-gris">{p.tipo}</span></td>
+                  <td className="td-num">{dinero(costo)}</td>
+                  <td className="td-num" style={{fontWeight:700}}>{dinero(p.precio)}</td>
+                  <td className="td-num" style={{color:util>0?'var(--verde)':'var(--rojo)', fontWeight:600}}>{dinero(util)} · {margen}%</td>
+                  <td style={{textAlign:'right'}}><button className="btn btn-s btn-mini" onClick={()=>setEditando({...p, receta:p.receta.map(r=>({...r}))})}>Editar</button></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        </div>
+      </div>
+      {editando && <EditorProducto prod={editando} materiales={materiales} onGuardar={guardar} onCerrar={()=>setEditando(null)} onToggle={p=>{ setProductos(productos.map(x=>x.id===p.id?{...x, activo:!x.activo}:x)); setEditando(null); }}/>}
+    </div>
+  );
+}
+
+function EditorProducto({prod, materiales, onGuardar, onCerrar, onToggle}){
+  const [p, setP] = useState(prod);
+  const costo = costoProduccion(p, materiales);
+  const setReceta = (i, patch) => setP({...p, receta:p.receta.map((r,ix)=>ix===i?{...r,...patch}:r)});
+  return (
+    <Modal titulo={p.id?'Editar producto':'Nuevo producto'} onCerrar={onCerrar}>
+      <div className="grid3">
+        <div className="campo"><label>Tipo</label>
+          <select value={p.tipo} onChange={e=>setP({...p, tipo:e.target.value})}>
+            {['Canvas','Bastidor','Cartel','Otro'].map(t=><option key={t}>{t}</option>)}
+          </select>
+        </div>
+        <div className="campo"><label>Medida</label><input value={p.medida} placeholder="30×40" onChange={e=>{
+          const medida = e.target.value;
+          setP(prev=>({...prev, medida, nombre: prev.tipo + ' ' + medida}));
+        }}/></div>
+        <div className="campo"><label>Precio venta $</label><input type="number" min="0" value={p.precio} onChange={e=>setP({...p, precio:Number(e.target.value)||0})}/></div>
+      </div>
+      <div className="campo"><label>Nombre</label><input value={p.nombre} onChange={e=>setP({...p, nombre:e.target.value})}/></div>
+      <div className="campo">
+        <label>Receta de materiales</label>
+        {p.receta.map((r,i)=>(
+          <div key={i} className="receta-row">
+            <select value={r.mat} onChange={e=>setReceta(i,{mat:e.target.value})}>
+              <option value="">Material…</option>
+              {materiales.map(m=><option key={m.id} value={m.id}>{m.nombre} ({dinero(m.costo)}/{m.unidad})</option>)}
+            </select>
+            <input type="number" step="0.01" min="0" value={r.cant} onChange={e=>setReceta(i,{cant:e.target.value})}/>
+            <button className="x-line" onClick={()=>setP({...p, receta:p.receta.filter((_,ix)=>ix!==i)})}>×</button>
+          </div>
+        ))}
+        <button className="btn btn-s btn-mini" onClick={()=>setP({...p, receta:[...p.receta, {mat:'', cant:1}]})}>+ Material</button>
+      </div>
+      <div className="total-box" style={{marginBottom:14}}>
+        <div className="t-row"><span>Costo de producción</span><span>{dinero(costo)}</span></div>
+        <div className="t-row big"><span>Utilidad por pieza</span><span>{dinero(p.precio - costo)}</span></div>
+      </div>
+      <div style={{display:'flex', gap:10}}>
+        {p.id && <button className="btn btn-s" onClick={()=>onToggle(p)}>{p.activo!==false?'Desactivar':'Activar'}</button>}
+        <button className="btn btn-p btn-block" onClick={()=>onGuardar(p)} disabled={!p.nombre || !p.medida}>Guardar producto</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ============================================================
+   TAB MATERIALES
+   ============================================================ */
+function TabMateriales({materiales, setMateriales}){
+  const [editando, setEditando] = useState(null);
+  const guardar = m => {
+    if(m.id) setMateriales(materiales.map(x=>x.id===m.id?m:x));
+    else setMateriales([...materiales, {...m, id:uid()}]);
+    setEditando(null);
+  };
+  const esConocida = editando ? UNIDADES.slice(0,-1).includes(editando.unidad) : false;
+  const selVal = esConocida ? (editando&&editando.unidad) : 'otra';
+  return (
+    <div>
+      <div className="subtitulo">Costos unitarios que alimentan las recetas del catálogo</div>
+      <div className="card">
+        <div className="card-h">Lista de materiales <button className="btn btn-p btn-mini" onClick={()=>setEditando({nombre:'', unidad:'pza', costo:0})}>+ Nuevo material</button></div>
+        <table>
+          <thead><tr><th>Material</th><th>Unidad</th><th className="td-num">Costo</th><th></th></tr></thead>
+          <tbody>
+            {materiales.map(m=>(
+              <tr key={m.id}>
+                <td style={{fontWeight:600}}>{m.nombre}</td>
+                <td>{m.unidad}</td>
+                <td className="td-num">{dinero(m.costo)}</td>
+                <td style={{textAlign:'right'}}><button className="btn btn-s btn-mini" onClick={()=>setEditando({...m})}>Editar</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {editando && <Modal titulo={editando.id?'Editar material':'Nuevo material'} onCerrar={()=>setEditando(null)}>
+        <div className="campo"><label>Nombre</label><input value={editando.nombre} onChange={e=>setEditando({...editando, nombre:e.target.value})}/></div>
+        <div className="grid2">
+          <div className="campo">
+            <label>Unidad</label>
+            <select value={selVal} onChange={e=>setEditando({...editando, unidad: e.target.value==='otra' ? '' : e.target.value})}>
+              {UNIDADES.map(u=><option key={u} value={u}>{u}</option>)}
+            </select>
+            {selVal==='otra' && <input style={{marginTop:8}} placeholder="Escribe la unidad" value={editando.unidad} onChange={e=>setEditando({...editando, unidad:e.target.value})}/>}
+          </div>
+          <div className="campo"><label>Costo unitario $</label><input type="number" step="0.01" min="0" value={editando.costo} onChange={e=>setEditando({...editando, costo:Number(e.target.value)||0})}/></div>
+        </div>
+        <button className="btn btn-p btn-block" onClick={()=>guardar(editando)} disabled={!editando.nombre || !editando.unidad}>Guardar material</button>
+      </Modal>}
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB TEMAS (catálogo)
+   ============================================================ */
+function TabTemas({temas, setTemas, stock, pedidos, ventas, avisar}){
+  const [editando, setEditando] = useState(null);
+
+  const enUso = id =>
+    stock.some(s=>s.temaId===id && s.cantidad>0) ||
+    pedidos.some(p=>p.items.some(i=>i.temaId===id)) ||
+    ventas.some(v=>v.items.some(i=>i.temaId===id));
+  const contarStock = id => stock.filter(s=>s.temaId===id).reduce((s,x)=>s+x.cantidad,0);
+
+  const guardar = t => {
+    if(!t.nombre.trim()) return;
+    if(t.id) setTemas(temas.map(x=>x.id===t.id?t:x));
+    else setTemas([...temas, {id:uid(), nombre:t.nombre.trim()}]);
+    setEditando(null);
+  };
+  const eliminar = t => {
+    if(enUso(t.id)){ avisar('No puedes eliminar "'+t.nombre+'": tiene stock o pedidos asociados'); return; }
+    setTemas(temas.filter(x=>x.id!==t.id));
+  };
+
+  return (
+    <div>
+      <div className="subtitulo">Los mismos temas se usan en pedidos, inventario y ventas — mantenerlos en un solo lugar evita duplicados por error de escritura</div>
+      <div className="card">
+        <div className="card-h">Temas <button className="btn btn-p btn-mini" onClick={()=>setEditando({nombre:''})}>+ Nuevo tema</button></div>
+        <table>
+          <thead><tr><th>Tema</th><th className="td-num">En stock</th><th></th></tr></thead>
+          <tbody>
+            {temas.map(t=>(
+              <tr key={t.id}>
+                <td style={{fontWeight:600}}>{t.nombre}</td>
+                <td className="td-num">{contarStock(t.id)}</td>
+                <td style={{textAlign:'right', whiteSpace:'nowrap'}}>
+                  <button className="btn btn-s btn-mini" style={{marginRight:6}} onClick={()=>setEditando({...t})}>Editar</button>
+                  <button className="btn btn-rojo btn-mini" onClick={()=>eliminar(t)}>Eliminar</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {temas.length===0 && <Vacio t="Sin temas" x="Agrega el primero con el botón Nuevo tema"/>}
+      </div>
+      {editando && <Modal titulo={editando.id?'Editar tema':'Nuevo tema'} onCerrar={()=>setEditando(null)}>
+        <div className="campo"><label>Nombre</label><input autoFocus value={editando.nombre} onChange={e=>setEditando({...editando, nombre:e.target.value})}/></div>
+        <button className="btn btn-p btn-block" onClick={()=>guardar(editando)} disabled={!editando.nombre.trim()}>Guardar tema</button>
+      </Modal>}
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB BASES (catálogo + temas + materiales)
+   ============================================================ */
+function TabBases({productos, setProductos, materiales, setMateriales, temas, setTemas, stock, pedidos, ventas, avisar}){
+  const [sub, setSub] = useState('catalogo');
+  return (
+    <div>
+      <div className="titulo">Bases</div>
+      <div className="subnav">
+        <button className={'subnav-btn'+(sub==='catalogo'?' on':'')} onClick={()=>setSub('catalogo')}>Catálogo</button>
+        <button className={'subnav-btn'+(sub==='temas'?' on':'')} onClick={()=>setSub('temas')}>Temas</button>
+        <button className={'subnav-btn'+(sub==='materiales'?' on':'')} onClick={()=>setSub('materiales')}>Materiales</button>
+      </div>
+      {sub==='catalogo'   && <TabCatalogo productos={productos} setProductos={setProductos} materiales={materiales}/>}
+      {sub==='temas'      && <TabTemas temas={temas} setTemas={setTemas} stock={stock} pedidos={pedidos} ventas={ventas} avisar={avisar}/>}
+      {sub==='materiales' && <TabMateriales materiales={materiales} setMateriales={setMateriales}/>}
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB CLIENTES
+   ============================================================ */
+function TabClientes({clientes, setClientes, pedidos, ventas, productos, temas}){
+  const nomTema = id => (temas.find(t=>t.id===id)||{}).nombre || '';
+  const [editando, setEditando] = useState(null);
+  const [ver, setVer] = useState(null);
+  const [busca, setBusca] = useState('');
+
+  const guardar = c => {
+    if(c.id) setClientes(clientes.map(x=>x.id===c.id?c:x));
+    else setClientes([...clientes, {...c, id:uid()}]);
+    setEditando(null);
+  };
+  const historial = c => pedidos.filter(p=>p.clienteId===c.id).sort((a,b)=>a.fecha<b.fecha?1:-1);
+  const filtrados = clientes.filter(c=>(c.nombre+' '+c.telefono).toLowerCase().includes(busca.toLowerCase()));
+
+  return (
+    <div>
+      <div className="titulo">Clientes</div>
+      <div className="subtitulo">Base de datos con preferencias e historial de pedidos</div>
+      <div style={{display:'flex', gap:10, marginBottom:14}}>
+        <input placeholder="Buscar por nombre o teléfono…" value={busca} onChange={e=>setBusca(e.target.value)}/>
+        <button className="btn btn-p" style={{flexShrink:0}} onClick={()=>setEditando({nombre:'', telefono:'', ciudad:'', comentarios:''})}>+ Nuevo</button>
+      </div>
+      <div className="card">
+        <table>
+          <thead><tr><th>Cliente</th><th>Teléfono</th><th>Ciudad</th><th className="td-num">Pedidos</th><th></th></tr></thead>
+          <tbody>
+            {filtrados.map(c=>(
+              <tr key={c.id}>
+                <td style={{fontWeight:600}}>{c.nombre}</td>
+                <td>{c.telefono}</td>
+                <td>{c.ciudad || '—'}</td>
+                <td className="td-num">{historial(c).length}</td>
+                <td style={{textAlign:'right', whiteSpace:'nowrap'}}>
+                  <button className="btn btn-s btn-mini" style={{marginRight:6}} onClick={()=>setVer(c)}>Ver</button>
+                  <button className="btn btn-s btn-mini" onClick={()=>setEditando({...c})}>Editar</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {filtrados.length===0 && <Vacio t="Sin clientes" x="Registra al primero con el botón Nuevo"/>}
+      </div>
+
+      {editando && <Modal titulo={editando.id?'Editar cliente':'Nuevo cliente'} onCerrar={()=>setEditando(null)}>
+        <div className="campo"><label>Nombre</label><input value={editando.nombre} onChange={e=>setEditando({...editando, nombre:e.target.value})}/></div>
+        <div className="grid2">
+          <div className="campo"><label>Teléfono</label><input value={editando.telefono} onChange={e=>setEditando({...editando, telefono:e.target.value})}/></div>
+          <div className="campo"><label>Ciudad</label><input value={editando.ciudad} onChange={e=>setEditando({...editando, ciudad:e.target.value})}/></div>
+        </div>
+        <div className="campo"><label>Preferencias / comentarios</label><textarea rows="3" value={editando.comentarios} placeholder="Temas que le gustan, forma de pago, si pide envío…" onChange={e=>setEditando({...editando, comentarios:e.target.value})}/></div>
+        <button className="btn btn-p btn-block" onClick={()=>guardar(editando)} disabled={!editando.nombre}>Guardar cliente</button>
+      </Modal>}
+
+      {ver && <Modal titulo={ver.nombre} onCerrar={()=>setVer(null)}>
+        <div className="grid2" style={{marginBottom:12}}>
+          <div className="stat"><div className="s-l">Teléfono</div><div style={{fontWeight:600, marginTop:3}}>{ver.telefono || '—'}</div></div>
+          <div className="stat"><div className="s-l">Ciudad</div><div style={{fontWeight:600, marginTop:3}}>{ver.ciudad || '—'}</div></div>
+        </div>
+        {ver.comentarios && <div className="envio-box" style={{marginBottom:12}}><b>Preferencias</b>{ver.comentarios}</div>}
+        <div className="card-h">Historial de pedidos</div>
+        {historial(ver).length===0 && <Vacio t="Sin pedidos" x="Todavía no tiene pedidos registrados"/>}
+        {historial(ver).map(p=>(
+          <div key={p.id} className="carrito-line">
+            <div><b>#{p.folio}</b> · {fFecha(p.fecha)} <span style={{color:'var(--gris-5)'}}>· {p.items.map(i=>nomTema(i.temaId)).filter(Boolean).join(', ') || p.items.length + ' pzas'}</span></div>
+            <div style={{fontWeight:600}}>{dinero(p.total)} <span className={'tag '+(p.estado==='entregado'?'tag-verde':'tag-am')} style={{marginLeft:6}}>{p.estado==='entregado'?'Entregado':'Activo'}</span></div>
+          </div>
+        ))}
+      </Modal>}
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB GASTOS
+   ============================================================ */
+function TabGastos({gastos, setGastos, catGastos, setCatGastos, avisar}){
+  const [modal, setModal] = useState(false);
+  const [modalCat, setModalCat] = useState(false);
+  const [nuevaCat, setNuevaCat] = useState('');
+  const [filtroCat, setFiltroCat] = useState('');
+  const [g, setG] = useState({fecha:hoyISO(), categoria:'', concepto:'', monto:'', metodo:'Efectivo'});
+
+  const guardar = () => {
+    if(!g.categoria || !g.monto) return;
+    setGastos([{...g, id:uid(), monto:Number(g.monto)}, ...gastos]);
+    setModal(false);
+    setG({fecha:hoyISO(), categoria:'', concepto:'', monto:'', metodo:'Efectivo'});
+    avisar('Gasto registrado');
+  };
+  const filtrados = filtroCat ? gastos.filter(x=>x.categoria===filtroCat) : gastos;
+  const total = filtrados.reduce((s,x)=>s+x.monto,0);
+
+  return (
+    <div>
+      <div className="titulo">Gastos</div>
+      <div className="subtitulo">Registro de gastos con catálogo de categorías editable</div>
+      <div style={{display:'flex', gap:8, marginBottom:14, flexWrap:'wrap'}}>
+        <button className="btn btn-p" onClick={()=>setModal(true)}>+ Registrar gasto</button>
+        <button className="btn btn-s" onClick={()=>setModalCat(true)}>Categorías</button>
+      </div>
+      <div className="chips-rapidos" style={{marginBottom:14}}>
+        <button className={'chip-f'+(filtroCat===''?' on':'')} onClick={()=>setFiltroCat('')}>Todas</button>
+        {catGastos.map(c=><button key={c} className={'chip-f'+(filtroCat===c?' on':'')} onClick={()=>setFiltroCat(filtroCat===c?'':c)}>{c}</button>)}
+      </div>
+      <div className="stat" style={{marginBottom:14}}><div className="s-l">Total {filtroCat||'general'}</div><div className="s-v">{dinero(total)}</div><div className="s-x">{filtrados.length} registros</div></div>
+      <div className="card">
+        <table>
+          <thead><tr><th>Fecha</th><th>Categoría</th><th>Concepto</th><th className="td-num">Monto</th></tr></thead>
+          <tbody>
+            {filtrados.map(x=>(
+              <tr key={x.id}>
+                <td>{fFecha(x.fecha)}</td>
+                <td><span className="tag tag-gris">{x.categoria}</span></td>
+                <td>{x.concepto || '—'} <span style={{color:'var(--gris-5)', fontSize:12}}>· {x.metodo}</span></td>
+                <td className="td-num" style={{fontWeight:600}}>{dinero(x.monto)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {filtrados.length===0 && <Vacio t="Sin gastos" x="Aún no hay gastos en esta categoría"/>}
+      </div>
+
+      {modal && <Modal titulo="Registrar gasto" onCerrar={()=>setModal(false)}>
+        <div className="grid2">
+          <div className="campo"><label>Fecha</label><input type="date" value={g.fecha} onChange={e=>setG({...g, fecha:e.target.value})}/></div>
+          <div className="campo"><label>Categoría</label>
+            <select value={g.categoria} onChange={e=>setG({...g, categoria:e.target.value})}>
+              <option value="">Elegir…</option>
+              {catGastos.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="campo"><label>Concepto</label><input value={g.concepto} onChange={e=>setG({...g, concepto:e.target.value})} placeholder="Descripción del gasto"/></div>
+        <div className="grid2">
+          <div className="campo"><label>Monto $</label><input type="number" min="0" value={g.monto} onChange={e=>setG({...g, monto:e.target.value})}/></div>
+          <div className="campo"><label>Método</label>
+            <div className="metodo-row">
+              {['Efectivo','Tarjeta','Transferencia'].map(m=>
+                <button key={m} className={'metodo-btn'+(g.metodo===m?' on':'')} onClick={()=>setG({...g, metodo:m})}>{m==='Transferencia'?'Transf.':m}</button>)}
+            </div>
+          </div>
+        </div>
+        <button className="btn btn-p btn-block" onClick={guardar} disabled={!g.categoria || !g.monto}>Guardar gasto</button>
+      </Modal>}
+
+      {modalCat && <Modal titulo="Categorías de gasto" onCerrar={()=>setModalCat(false)}>
+        {catGastos.map(c=>(
+          <div key={c} className="carrito-line">
+            <div style={{fontWeight:600}}>{c}</div>
+            <button className="x-line" onClick={()=>setCatGastos(catGastos.filter(x=>x!==c))}>×</button>
+          </div>
+        ))}
+        <div style={{display:'flex', gap:8, marginTop:12}}>
+          <input placeholder="Nueva categoría" value={nuevaCat} onChange={e=>setNuevaCat(e.target.value)}/>
+          <button className="btn btn-p" style={{flexShrink:0}} onClick={()=>{ if(nuevaCat && !catGastos.includes(nuevaCat)){ setCatGastos([...catGastos, nuevaCat]); setNuevaCat(''); } }}>Agregar</button>
+        </div>
+      </Modal>}
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB REPORTES
+   ============================================================ */
+function TabReportes({pedidos, ventas, gastos, productos, materiales, temas, clientes}){
+  const [desde, setDesde] = useState(hoyISO());
+  const [hasta, setHasta] = useState(hoyISO());
+  const [rapido, setRapido] = useState('hoy');
+
+  const setRango = tipo => {
+    setRapido(tipo);
+    const d = new Date();
+    if(tipo==='hoy'){ setDesde(hoyISO()); setHasta(hoyISO()); }
+    if(tipo==='semana'){ const s = new Date(); s.setDate(d.getDate()-6); setDesde(s.toISOString().slice(0,10)); setHasta(hoyISO()); }
+    if(tipo==='mes'){ setDesde(hoyISO().slice(0,8)+'01'); setHasta(hoyISO()); }
+  };
+  const enRango = f => f >= desde && f <= hasta;
+
+  // Ventas POS en rango
+  const ventasR = ventas.filter(v=>enRango(v.fecha));
+  const totalPos = ventasR.reduce((s,v)=>s+v.total,0);
+
+  // Pagos de pedidos en rango (anticipos y liquidaciones)
+  const pagosR = pedidos.flatMap(p=>(p.pagos||[]).filter(x=>enRango(x.fecha)));
+  const totalPedidos = pagosR.reduce((s,x)=>s+x.monto,0);
+
+  // Por método
+  const porMetodo = m =>
+    ventasR.filter(v=>v.metodo===m).reduce((s,v)=>s+v.total,0) +
+    pagosR.filter(x=>x.metodo===m).reduce((s,x)=>s+x.monto,0);
+
+  // Gastos
+  const gastosR = gastos.filter(g=>enRango(g.fecha));
+  const totalGastos = gastosR.reduce((s,g)=>s+g.monto,0);
+
+  // Piezas vendidas: pedidos ENTREGADOS en rango + ventas POS
+  const piezas = {};
+  const temasCount = {};
+  const nomTema = id => (temas.find(t=>t.id===id)||{}).nombre || '';
+  ventasR.forEach(v=>v.items.forEach(i=>{
+    const p = prodDe(i.prodId, productos);
+    const k = p ? p.tipo+' '+p.medida : 'Otro';
+    piezas[k] = (piezas[k]||0) + i.cantidad;
+    const tn = nomTema(i.temaId);
+    if(tn) temasCount[tn] = (temasCount[tn]||0) + i.cantidad;
+  }));
+  pedidos.filter(p=>p.estado==='entregado' && p.fechaEntregado && enRango(p.fechaEntregado) && p.destino==='cliente').forEach(p=>{
+    p.items.forEach(i=>{
+      const pr = prodDe(i.prodId, productos);
+      const k = pr ? pr.tipo+' '+pr.medida : 'Otro';
+      piezas[k] = (piezas[k]||0) + 1;
+      const tn = nomTema(i.temaId);
+      if(tn) temasCount[tn] = (temasCount[tn]||0) + 1;
+    });
+  });
+  const totalPzas = Object.values(piezas).reduce((a,b)=>a+b,0);
+
+  // Costo de producción de lo vendido (utilidad estimada)
+  let costoVendido = 0;
+  ventasR.forEach(v=>v.items.forEach(i=>{ costoVendido += costoProduccion(prodDe(i.prodId, productos), materiales) * i.cantidad; }));
+  pedidos.filter(p=>p.estado==='entregado' && p.fechaEntregado && enRango(p.fechaEntregado) && p.destino==='cliente').forEach(p=>{
+    p.items.forEach(i=>{ costoVendido += costoProduccion(prodDe(i.prodId, productos), materiales); });
+  });
+
+  const ingresoTotal = totalPos + totalPedidos;
+
+  const [verDesglose, setVerDesglose] = useState('');
+  const pedidosConPago = pedidos.filter(p=>p.destino==='cliente' && (p.pagos||[]).some(x=>enRango(x.fecha)));
+  const nomTemaR = id => (temas.find(t=>t.id===id)||{}).nombre || 'Sin tema';
+
+  return (
+    <div>
+      <div className="titulo">Reportes</div>
+      <div className="subtitulo">Ventas, métodos de pago, piezas y temas — filtrable por fecha</div>
+
+      <div className="filtros-fecha">
+        <div className="chips-rapidos">
+          {[['hoy','Hoy'],['semana','7 días'],['mes','Este mes'],['custom','Rango']].map(([k,t])=>
+            <button key={k} className={'chip-f'+(rapido===k?' on':'')} onClick={()=>k==='custom'?setRapido('custom'):setRango(k)}>{t}</button>)}
+        </div>
+        {rapido==='custom' && <>
+          <div className="campo"><label>Desde</label><input type="date" value={desde} onChange={e=>setDesde(e.target.value)}/></div>
+          <div className="campo"><label>Hasta</label><input type="date" value={hasta} onChange={e=>setHasta(e.target.value)}/></div>
+        </>}
+      </div>
+
+      <div className="grid4" style={{marginBottom:14}}>
+        <div className="stat"><div className="s-l">Ingreso total</div><div className="s-v">{dinero(ingresoTotal)}</div></div>
+        <div className="stat"><div className="s-l">Ventas de pedidos</div><div className="s-v">{dinero(totalPedidos)}</div><div className="s-x">{pagosR.length} pagos</div></div>
+        <div className="stat"><div className="s-l">Ventas de stock (POS)</div><div className="s-v">{dinero(totalPos)}</div><div className="s-x">{ventasR.length} ventas</div></div>
+        <div className="stat"><div className="s-l">Gastos</div><div className="s-v">{dinero(totalGastos)}</div></div>
+      </div>
+
+      <div className="grid3" style={{marginBottom:14}}>
+        {['Efectivo','Tarjeta','Transferencia'].map(m=>(
+          <div key={m} className="stat"><div className="s-l">{m}</div><div className="s-v">{dinero(porMetodo(m))}</div></div>
+        ))}
+      </div>
+
+      <div className="grid2" style={{alignItems:'start'}}>
+        <div className="card">
+          <div className="card-h">Cuadros vendidos por medida</div>
+          {totalPzas===0 && <Vacio t="Sin ventas" x="No hay piezas vendidas en el rango"/>}
+          <table><tbody>
+            {Object.entries(piezas).sort((a,b)=>b[1]-a[1]).map(([k,v])=>(
+              <tr key={k}><td style={{fontWeight:600}}>{k}</td><td className="td-num" style={{fontWeight:700}}>{v}</td></tr>
+            ))}
+            {totalPzas>0 && <tr><td style={{color:'var(--gris-5)'}}>Total piezas</td><td className="td-num" style={{fontWeight:700}}>{totalPzas}</td></tr>}
+          </tbody></table>
+        </div>
+        <div className="card">
+          <div className="card-h">Temas vendidos</div>
+          {Object.keys(temasCount).length===0 && <Vacio t="Sin datos" x="Los temas aparecen al vender piezas con tema registrado"/>}
+          <table><tbody>
+            {Object.entries(temasCount).sort((a,b)=>b[1]-a[1]).map(([k,v])=>(
+              <tr key={k}><td style={{fontWeight:600}}>{k}</td><td className="td-num" style={{fontWeight:700}}>{v}</td></tr>
+            ))}
+          </tbody></table>
+        </div>
+      </div>
+
+      <div className="card" style={{marginTop:14}}>
+        <div className="card-h">Desglose del periodo</div>
+        <div className="chips-rapidos" style={{marginBottom:12}}>
+          <button className={'chip-f'+(verDesglose==='pos'?' on':'')} onClick={()=>setVerDesglose(verDesglose==='pos'?'':'pos')}>Ventas de stock ({ventasR.length})</button>
+          <button className={'chip-f'+(verDesglose==='pedidos'?' on':'')} onClick={()=>setVerDesglose(verDesglose==='pedidos'?'':'pedidos')}>Pedidos con pagos ({pedidosConPago.length})</button>
+        </div>
+        {verDesglose==='' && <div style={{fontSize:12.5, color:'var(--gris-5)'}}>Toca una opción para ver el detalle de cada venta o pedido del periodo</div>}
+        {verDesglose==='pos' && <>
+          {ventasR.length===0 && <Vacio t="Sin ventas de stock" x="No hay ventas POS en el rango"/>}
+          {ventasR.map(v=>(
+            <div key={v.id} style={{border:'1px solid var(--gris-2)', borderRadius:8, padding:'9px 12px', marginBottom:8}}>
+              <div style={{display:'flex', justifyContent:'space-between', marginBottom:4}}>
+                <span style={{fontSize:12.5, color:'var(--gris-5)'}}>{fFecha(v.fecha)} · {v.metodo}{v.descuento>0?' · desc '+v.descuento+'%':''}</span>
+                <span style={{fontWeight:700}}>{dinero(v.total)}</span>
+              </div>
+              {v.items.map((i,ix)=>{
+                const p = prodDe(i.prodId, productos);
+                return <div key={ix} style={{fontSize:13}}>{i.cantidad} × {nomTemaR(i.temaId)} <span style={{color:'var(--gris-5)'}}>· {p?p.tipo+' '+p.medida:'—'}</span></div>;
+              })}
+            </div>
+          ))}
+        </>}
+        {verDesglose==='pedidos' && <>
+          {pedidosConPago.length===0 && <Vacio t="Sin pedidos" x="No hay pedidos con pagos en el rango"/>}
+          {pedidosConPago.map(p=>{
+            const pagosRango = (p.pagos||[]).filter(x=>enRango(x.fecha));
+            const cobradoRango = pagosRango.reduce((s,x)=>s+x.monto,0);
+            const pagadoTotal = (p.pagos||[]).reduce((s,x)=>s+x.monto,0);
+            const saldo = p.total - pagadoTotal;
+            const nc = clientes.find(c=>c.id===p.clienteId)?.nombre || p.clienteNombre || 'Cliente';
+            return (
+              <div key={p.id} style={{border:'1px solid var(--gris-2)', borderRadius:8, padding:'9px 12px', marginBottom:8}}>
+                <div style={{display:'flex', justifyContent:'space-between', marginBottom:4}}>
+                  <span><b>#{p.folio}</b> · {nc}</span>
+                  <span style={{fontWeight:700}}>{dinero(cobradoRango)}</span>
+                </div>
+                <div style={{fontSize:12.5, color:'var(--gris-5)'}}>
+                  {pagosRango.map((x,ix)=><span key={ix}>{fFecha(x.fecha)} {x.metodo} {dinero(x.monto)}{ix<pagosRango.length-1?' · ':''}</span>)}
+                </div>
+                <div style={{fontSize:12.5, marginTop:3}}>
+                  Total {dinero(p.total)} · {saldo>0 ? <span style={{color:'var(--rojo)', fontWeight:600}}>saldo {dinero(saldo)}</span> : <span style={{color:'var(--verde)', fontWeight:600}}>saldado</span>}
+                  {p.estado==='entregado' ? ' · entregado' : ' · en producción'}
+                </div>
+              </div>
+            );
+          })}
+        </>}
+      </div>
+
+      <div className="total-box" style={{marginTop:14}}>
+        <div className="t-row"><span>Ingreso total</span><span>{dinero(ingresoTotal)}</span></div>
+        <div className="t-row"><span>Costo de producción de lo vendido</span><span>−{dinero(Math.round(costoVendido))}</span></div>
+        <div className="t-row"><span>Gastos del periodo</span><span>−{dinero(totalGastos)}</span></div>
+        <div className="t-row big"><span>Utilidad estimada</span><span>{dinero(Math.round(ingresoTotal - costoVendido - totalGastos))}</span></div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB USUARIOS (permisos por módulo)
+   ============================================================ */
+function TabUsuarios({usuarios, setUsuarios}){
+  const [editando, setEditando] = useState(null);
+  const guardar = u => {
+    if(u.id) setUsuarios(usuarios.map(x=>x.id===u.id?u:x));
+    else setUsuarios([...usuarios, {...u, id:uid()}]);
+    setEditando(null);
+  };
+  const togglePerm = (u, mod) => {
+    const tiene = u.modulos.includes(mod);
+    setEditando({...u, modulos: tiene ? u.modulos.filter(m=>m!==mod) : [...u.modulos, mod]});
+  };
+  return (
+    <div>
+      <div className="titulo">Usuarios</div>
+      <div className="subtitulo">Cada usuario ve solo los módulos que le asignes</div>
+      <div className="card">
+        <div className="card-h">Equipo <button className="btn btn-p btn-mini" onClick={()=>setEditando({nombre:'', rol:'', pin:'', modulos:['hoy','flujo']})}>+ Nuevo usuario</button></div>
+        <table>
+          <thead><tr><th>Usuario</th><th>Rol</th><th>Módulos</th><th></th></tr></thead>
+          <tbody>
+            {usuarios.map(u=>(
+              <tr key={u.id}>
+                <td style={{fontWeight:600}}>{u.nombre}</td>
+                <td>{u.rol}</td>
+                <td><span className="tag tag-gris">{u.modulos.length} de {MODULOS.length}</span></td>
+                <td style={{textAlign:'right'}}><button className="btn btn-s btn-mini" onClick={()=>setEditando({...u, modulos:[...u.modulos]})}>Editar</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {editando && <Modal titulo={editando.id?'Editar usuario':'Nuevo usuario'} onCerrar={()=>setEditando(null)}>
+        <div className="grid2">
+          <div className="campo"><label>Nombre</label><input value={editando.nombre} onChange={e=>setEditando({...editando, nombre:e.target.value})}/></div>
+          <div className="campo"><label>Rol</label><input value={editando.rol} placeholder="Ventas, Producción…" onChange={e=>setEditando({...editando, rol:e.target.value})}/></div>
+        </div>
+        <div className="campo"><label>PIN (4 dígitos)</label><input maxLength="4" value={editando.pin} onChange={e=>setEditando({...editando, pin:e.target.value.replace(/\D/g,'')})}/></div>
+        <div className="campo">
+          <label>Módulos con acceso</label>
+          <div className="perm-grid">
+            {MODULOS.map(m=>(
+              <label key={m.id} className="perm-item">
+                <input type="checkbox" checked={editando.modulos.includes(m.id)} onChange={()=>togglePerm(editando, m.id)}/>
+                {m.nombre}
+              </label>
+            ))}
+          </div>
+        </div>
+        <button className="btn btn-p btn-block" onClick={()=>guardar(editando)} disabled={!editando.nombre || editando.pin.length!==4}>Guardar usuario</button>
+      </Modal>}
+    </div>
+  );
+}
+
+/* ============================================================
+   APP
+   ============================================================ */
+function App(){
+  const [usuarios, setUsuarios] = useState(USUARIOS_INI);
+  const [usuario, setUsuario] = useState(null);
+  const [tab, setTab] = useState('hoy');
+
+  const [materiales, setMateriales] = useState(MATERIALES_INI);
+  const [productos, setProductos] = useState(PRODUCTOS_INI);
+  const [temas, setTemas] = useState(TEMAS_INI);
+  const [stock, setStock] = useState(STOCK_INI);
+  const [clientes, setClientes] = useState(CLIENTES_INI);
+  const [pedidos, setPedidos] = useState(PEDIDOS_INI);
+  const [ventas, setVentas] = useState(VENTAS_INI);
+  const [gastos, setGastos] = useState(GASTOS_INI);
+  const [catGastos, setCatGastos] = useState(CAT_GASTOS_INI);
+  const [folio, setFolio] = useState(104);
+
+  const [editar, setEditar] = useState(null);
+  const [entregando, setEntregando] = useState(null);
+  const [toast, setToast] = useState('');
+  const avisar = m => { setToast(m); setTimeout(()=>setToast(''), 2600); };
+  const crearTema = nombre => { const t = {id:uid(), nombre}; setTemas(prev=>[...prev, t]); return t.id; };
+
+  const crearPedido = (datos, edit) => {
+    if(edit){
+      setPedidos(pedidos.map(p=>p.id!==edit.id?p:{
+        ...p, ...datos,
+        pagos: p.pagos, // se conservan pagos históricos
+      }));
+      avisar('Pedido <b>#'+edit.folio+'</b> actualizado');
+      setTab('flujo');
+      API.guardar({accion:'editarPedido', folio:edit.folio, datos});
+      return;
+    }
+    const nuevo = {
+      id:uid(), folio, fecha:hoyISO(), estado:'produccion', ...datos,
+      pagos: datos.anticipo>0 ? [{monto:datos.anticipo, metodo:datos.metodoAnticipo, fecha:hoyISO()}] : [],
+    };
+    setPedidos([nuevo, ...pedidos]);
+    setFolio(folio+1);
+    avisar((datos.destino==='stock'?'Producción para stock':'Pedido')+' <b>#'+folio+'</b> creado');
+    setTab('flujo');
+    API.guardar({accion:'nuevoPedido', pedido:nuevo});
+  };
+
+  const editarPedido = p => { setEditar(p); setTab('pedido'); };
+
+  const cobrarYEntregar = p => setEntregando(p);
+
+  const confirmarEntrega = (p, metodo) => {
+    const pagado = (p.pagos||[]).reduce((s,x)=>s+x.monto,0);
+    const resta = p.total - pagado;
+    setPedidos(pedidos.map(x=>x.id!==p.id?x:{
+      ...x, estado:'entregado', fechaEntregado:hoyISO(),
+      pagos: resta>0 ? [...x.pagos, {monto:resta, metodo, fecha:hoyISO()}] : x.pagos,
+    }));
+    setEntregando(null);
+    avisar('Pedido <b>#'+p.folio+'</b> entregado'+(resta>0?' · cobrado '+dinero(resta):''));
+    API.guardar({accion:'entregar', folio:p.folio, metodo, cobrado:resta});
+  };
+
+  const terminarStock = p => {
+    let nuevoStock = [...stock];
+    p.items.forEach(i=>{
+      if(!i.temaId) return;
+      const ex = nuevoStock.find(s=>s.prodId===i.prodId && s.temaId===i.temaId);
+      if(ex) nuevoStock = nuevoStock.map(s=>s.id===ex.id?{...s, cantidad:s.cantidad+1}:s);
+      else nuevoStock.push({id:uid(), prodId:i.prodId, temaId:i.temaId, cantidad:1});
+    });
+    setStock(nuevoStock);
+    setPedidos(pedidos.map(x=>x.id!==p.id?x:{...x, estado:'entregado', fechaEntregado:hoyISO()}));
+    avisar('<b>'+p.items.length+' piezas</b> sumadas al inventario');
+    API.guardar({accion:'stockProducido', folio:p.folio});
+  };
+
+  const venderStock = (carrito, total, descuento, metodo) => {
+    setStock(stock.map(s=>{
+      const c = carrito.find(x=>x.stockId===s.id);
+      return c ? {...s, cantidad:s.cantidad - c.cantidad} : s;
+    }));
+    const venta = {id:uid(), fecha:hoyISO(), items:carrito.map(c=>({prodId:c.prodId, temaId:c.temaId, cantidad:c.cantidad, precio:c.precio})), total, descuento, metodo};
+    setVentas([venta, ...ventas]);
+    avisar('Venta de <b>'+dinero(total)+'</b> registrada · '+metodo);
+    API.guardar({accion:'ventaPos', venta});
+  };
+
+  if(!usuario) return <Login usuarios={usuarios} onEntrar={u=>{setUsuario(u); setTab(u.modulos[0]||'hoy');}}/>;
+
+  const misModulos = MODULOS.filter(m=>usuario.modulos.includes(m.id));
+  const pendientes = pedidos.filter(p=>p.estado!=='entregado' && diasPara(p.entrega)<=0).length;
+
+  return (
+    <div className="shell">
+      <div className="topbar">
+        <img className="marca-img marca-img-top" src={LOGO_URI} alt="FANATICARTE"/>
+        <div className="topbar-right">
+          {API.MODE==='demo' && <span className="demo-flag">Demo</span>}
+          <div className="chip-user"><div className="avatar">{usuario.nombre.slice(0,2).toUpperCase()}</div><span>{usuario.nombre}</span></div>
+          <button className="btn-salir" onClick={()=>setUsuario(null)}>Salir</button>
+        </div>
+      </div>
+      <div className="nav">
+        {misModulos.map(m=>(
+          <button key={m.id} className={'nav-btn'+(tab===m.id?' on':'')} onClick={()=>{setTab(m.id); if(m.id!=='pedido') setEditar(null);}}>
+            {m.nombre}{m.id==='flujo' && pendientes>0 && <span className="nb-badge">{pendientes}</span>}
+          </button>
+        ))}
+      </div>
+      <div className="main">
+        {tab==='hoy'        && <TabHoy pedidos={pedidos} ventas={ventas} gastos={gastos} clientes={clientes} productos={productos} ir={setTab}/>}
+        {tab==='pedido'     && <TabPedido key={editar?editar.id:'nuevo'} productos={productos} materiales={materiales} temas={temas} crearTema={crearTema} clientes={clientes} setClientes={setClientes} crearPedido={crearPedido} editar={editar} setEditar={setEditar} avisar={avisar}/>}
+        {tab==='flujo'      && <TabFlujo pedidos={pedidos} setPedidos={setPedidos} clientes={clientes} productos={productos} temas={temas} cobrarYEntregar={cobrarYEntregar} terminarStock={terminarStock} editarPedido={editarPedido} avisar={avisar}/>}
+        {tab==='ventas'     && <TabVentas pedidos={pedidos} setPedidos={setPedidos} clientes={clientes} productos={productos} temas={temas} ventas={ventas} avisar={avisar}/>}
+        {tab==='pos'        && <TabPos stock={stock} productos={productos} temas={temas} venderStock={venderStock}/>}
+        {tab==='inventario' && <TabInventario stock={stock} setStock={setStock} productos={productos} temas={temas} crearTema={crearTema} ir={setTab}/>}
+        {tab==='bases'      && <TabBases productos={productos} setProductos={setProductos} materiales={materiales} setMateriales={setMateriales} temas={temas} setTemas={setTemas} stock={stock} pedidos={pedidos} ventas={ventas} avisar={avisar}/>}
+        {tab==='clientes'   && <TabClientes clientes={clientes} setClientes={setClientes} pedidos={pedidos} ventas={ventas} productos={productos} temas={temas}/>}
+        {tab==='gastos'     && <TabGastos gastos={gastos} setGastos={setGastos} catGastos={catGastos} setCatGastos={setCatGastos} avisar={avisar}/>}
+        {tab==='reportes'   && <TabReportes pedidos={pedidos} ventas={ventas} gastos={gastos} productos={productos} materiales={materiales} temas={temas} clientes={clientes}/>}
+        {tab==='usuarios'   && <TabUsuarios usuarios={usuarios} setUsuarios={setUsuarios}/>}
+      </div>
+
+      {entregando && (()=>{
+        const pagado = (entregando.pagos||[]).reduce((s,x)=>s+x.monto,0);
+        const resta = entregando.total - pagado;
+        return (
+          <Modal titulo={'Entregar pedido #'+entregando.folio} onCerrar={()=>setEntregando(null)}>
+            <div className="total-box" style={{marginBottom:14}}>
+              <div className="t-row"><span>Total del pedido</span><span>{dinero(entregando.total)}</span></div>
+              <div className="t-row"><span>Pagado</span><span>−{dinero(pagado)}</span></div>
+              <div className="t-row big"><span>Por cobrar</span><span>{dinero(resta)}</span></div>
+            </div>
+            {resta>0 ? <>
+              <label>Método de pago del restante</label>
+              <div className="metodo-row" style={{marginBottom:14}}>
+                {['Efectivo','Tarjeta','Transferencia'].map(m=>
+                  <button key={m} className="metodo-btn" onClick={()=>confirmarEntrega(entregando, m)}>{m}</button>)}
+              </div>
+              <div style={{fontSize:12.5, color:'var(--gris-5)', textAlign:'center'}}>Toca el método para cobrar y entregar</div>
+            </> :
+              <button className="btn btn-p btn-block" onClick={()=>confirmarEntrega(entregando, 'Efectivo')}>Confirmar entrega (ya está pagado)</button>}
+          </Modal>
+        );
+      })()}
+      <Toast msg={toast}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
