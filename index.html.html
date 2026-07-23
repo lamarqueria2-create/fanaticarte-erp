@@ -168,6 +168,13 @@
   .prod-line{display:flex;gap:12px;align-items:flex-start;background:var(--fondo);border:1px solid var(--gris-2);border-radius:var(--radio);padding:12px;margin-bottom:10px}
   .up-thumb{width:74px;height:74px;border-radius:8px;border:1.5px dashed var(--gris-3);background:var(--blanco);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--gris-5);text-align:center;cursor:pointer;flex-shrink:0;overflow:hidden;text-transform:uppercase;letter-spacing:.04em}
   .up-thumb img{width:100%;height:100%;object-fit:cover}
+  .up-thumb{position:relative}
+  .up-thumb.up-err{border-color:var(--rojo);border-style:solid}
+  .up-badge{position:absolute;left:0;right:0;bottom:0;background:rgba(20,20,20,.82);color:#fff;font-size:8.5px;padding:3px 2px;letter-spacing:.03em;text-align:center}
+  .up-badge-err{background:var(--rojo)}
+  .aviso-sub{margin-top:12px;padding:9px 12px;border-radius:8px;background:var(--gris-1);border:1px solid var(--gris-2);font-size:12.5px;color:var(--gris-t)}
+  .aviso-sub.aviso-err{background:#FEF2F2;border-color:#FECACA;color:#B91C1C}
+  .img-rota{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--gris-1);color:var(--gris-5);font-size:9px;text-align:center}
   .prod-line-campos{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:9px}
   @media(max-width:560px){.prod-line-campos{grid-template-columns:1fr}}
   .x-line{color:var(--gris-5);font-size:18px;font-weight:600;padding:2px 8px;border-radius:6px}
@@ -247,6 +254,28 @@ const {useState, useEffect, useMemo, useRef} = React;
    ============================================================ */
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzlGPgMvw46rq-uLP3Hy5811hnDTSeSFO5azItzwISczO2edtA2V8FoZ8pBBNHMCe2KVw/exec';
 
+/* Una imagen es "temporal" mientras sea base64 (data:...). Esas NUNCA deben
+   viajar a Google Sheets: una sola rebasa el límite de 50,000 caracteres por
+   celda, Sheets la corta a la mitad y el JSON del pedido queda roto — se pierde
+   el pedido completo al recargar. Solo se guardan URLs de Drive. */
+const esBase64 = v => typeof v === 'string' && v.startsWith('data:');
+
+/* Deja el pedido listo para Sheets: quita las imágenes que todavía no se
+   subieron a Drive y las marcas temporales de progreso. No toca el estado de
+   la app, así que el usuario sigue viendo su vista previa en pantalla. */
+const pedidosParaGuardar = pedidos => (pedidos||[]).map(p=>{
+  const items = (p.items||[]).map(i=>{
+    const {imgEstado, ...limpio} = i;               // el progreso no se guarda
+    return esBase64(limpio.imagen) ? {...limpio, imagen:''} : limpio;
+  });
+  let envio = p.envio;
+  if(envio){
+    const {guiaEstado, ...limpioEnvio} = envio;
+    envio = esBase64(limpioEnvio.guia) ? {...limpioEnvio, guia:''} : limpioEnvio;
+  }
+  return {...p, items, envio};
+});
+
 const API = {
   URL: APPS_SCRIPT_URL,
   MODE: APPS_SCRIPT_URL ? 'sheets' : 'demo',
@@ -255,9 +284,10 @@ const API = {
   },
   guardarTodo(datos){
     if(API.MODE!=='sheets') return Promise.resolve({ok:true});
+    const limpio = {...datos, pedidos: pedidosParaGuardar(datos.pedidos)};
     return fetch(API.URL, {
       method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({accion:'guardarTodo', ...datos})
+      body: JSON.stringify({accion:'guardarTodo', ...limpio})
     }).then(r=>r.json()).catch(()=>({ok:false}));
   },
   subirImagen(dataUrl, nombre){
@@ -265,7 +295,10 @@ const API = {
     return fetch(API.URL, {
       method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({accion:'subirImagen', nombre, datos:dataUrl})
-    }).then(r=>r.json()).then(d=>(d && d.url) ? d.url : null).catch(()=>null);
+    })
+    .then(r=>r.json())
+    .then(d=>(d && d.url) ? d.url : null)
+    .catch(()=>null);
   }
 };
 
@@ -469,11 +502,17 @@ const leerImagen = (file, cb) => {
   r.readAsDataURL(file);
 };
 
-/* Sube la miniatura a la carpeta de Drive (solo si hay Sheets conectado)
-   y reemplaza la vista previa local por la URL permanente cuando termina */
-const subirImagenAuto = (dataUrl, nombre, aplicarUrl) => {
-  if(API.MODE!=='sheets') return;
-  API.subirImagen(dataUrl, nombre).then(url=>{ if(url) aplicarUrl(url); });
+/* Sube la miniatura a la carpeta de Drive y reemplaza la vista previa local
+   (base64) por la URL permanente. Informa el avance con un patch:
+     {imgEstado:'subiendo'} → {imagen:URL, imgEstado:'ok'} → o {imgEstado:'error'}
+   Mientras el estado no sea 'ok', la imagen no se guarda en Sheets. */
+const subirImagenAuto = (dataUrl, nombre, aplicar) => {
+  if(API.MODE!=='sheets'){ aplicar({imgEstado:'local'}); return; }
+  aplicar({imgEstado:'subiendo'});
+  API.subirImagen(dataUrl, nombre).then(url=>{
+    if(url) aplicar({imagen:url, imgEstado:'ok'});
+    else    aplicar({imgEstado:'error'});
+  });
 };
 
 /* ============================================================
@@ -496,6 +535,15 @@ function Modal({titulo, onCerrar, children}){
 function Toast({msg}){ return msg ? <div className="toast" dangerouslySetInnerHTML={{__html:msg}}/> : null; }
 
 function Vacio({t, x}){ return <div className="vacio"><div className="v-t">{t}</div><div>{x}</div></div>; }
+
+/* Miniatura tolerante a fallos: si la imagen de Drive no carga (link roto,
+   permisos, sin internet) muestra un aviso en vez del ícono de imagen rota */
+function Miniatura({src, clase, claseVacio, textoVacio}){
+  const [falla, setFalla] = useState(false);
+  useEffect(()=>{ setFalla(false); }, [src]);
+  if(!src || falla) return <div className={claseVacio}>{falla ? 'No carga' : textoVacio}</div>;
+  return <img className={clase} src={src} alt="" loading="lazy" onError={()=>setFalla(true)}/>;
+}
 
 function SelectTema({value, onChange, temas, crearTema}){
   const [nuevo, setNuevo] = useState(false);
@@ -646,6 +694,10 @@ function TabPedido({productos, materiales, temas, crearTema, clientes, setClient
   const [nc, setNc] = useState({nombre:'', telefono:'', ciudad:'', comentarios:''});
 
   const setItem = (id, patch) => setItems(prev=>prev.map(i=>i.id===id?{...i,...patch}:i));
+
+  // Control de subidas: no se debe crear el pedido mientras una imagen siga en base64
+  const subiendoImgs = items.filter(i=>i.imgEstado==='subiendo').length + (envio.guiaEstado==='subiendo'?1:0);
+  const fallaronImgs = items.filter(i=>i.imgEstado==='error').length + (envio.guiaEstado==='error'?1:0);
   const subtotal = items.reduce((s,i)=>{ const p=prodDe(i.prodId, productos); return s + (p?p.precio:0); },0);
   const total = destino==='stock' ? 0 : Math.round(subtotal * (1 - descuento/100));
   const cliente = clientes.find(c=>c.id===clienteId);
@@ -705,9 +757,11 @@ function TabPedido({productos, materiales, temas, crearTema, clientes, setClient
           const p = prodDe(it.prodId, productos);
           return (
             <div key={it.id} className="prod-line">
-              <label className="up-thumb" style={{marginBottom:0}}>
+              <label className={'up-thumb'+(it.imgEstado==='error'?' up-err':'')} style={{marginBottom:0}}>
                 {it.imagen ? <img src={it.imagen} alt=""/> : 'Subir imagen'}
-                <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>{ setItem(it.id,{imagen:d}); subirImagenAuto(d, 'pedido_'+it.id, url=>setItem(it.id,{imagen:url})); }); }}/>
+                {it.imgEstado==='subiendo' && <span className="up-badge">Subiendo…</span>}
+                {it.imgEstado==='error' && <span className="up-badge up-badge-err">Error — toca</span>}
+                <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>{ setItem(it.id,{imagen:d, imgEstado:'subiendo'}); subirImagenAuto(d, 'pedido_'+it.id, patch=>setItem(it.id, patch)); }); }}/>
               </label>
               <div className="prod-line-campos">
                 <div>
@@ -754,9 +808,11 @@ function TabPedido({productos, materiales, temas, crearTema, clientes, setClient
             <div className="campo" style={{gridColumn:'1 / -1'}}><label>Dirección</label><input value={envio.direccion} onChange={e=>setEnvio({...envio, direccion:e.target.value})} placeholder="Calle, colonia, CP"/></div>
             <div className="campo" style={{gridColumn:'1 / -1'}}>
               <label>Guía de envío (foto o captura)</label>
-              <label className="up-thumb" style={{width:'100%', height:90}}>
+              <label className={'up-thumb'+(envio.guiaEstado==='error'?' up-err':'')} style={{width:'100%', height:90}}>
                 {envio.guia ? <img src={envio.guia} alt=""/> : 'Subir guía — también se puede cargar después desde el flujo'}
-                <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>{ setEnvio(prev=>({...prev, guia:d})); subirImagenAuto(d, 'guia_temp_'+uid(), url=>setEnvio(prev=>({...prev, guia:url}))); }); }}/>
+                {envio.guiaEstado==='subiendo' && <span className="up-badge">Subiendo…</span>}
+                {envio.guiaEstado==='error' && <span className="up-badge up-badge-err">Error — toca</span>}
+                <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>{ setEnvio(prev=>({...prev, guia:d, guiaEstado:'subiendo'})); subirImagenAuto(d, 'guia_temp_'+uid(), patch=>setEnvio(prev=>({...prev, guia: patch.imagen!==undefined?patch.imagen:prev.guia, guiaEstado: patch.imgEstado}))); }); }}/>
               </label>
             </div>
           </div>}
@@ -771,9 +827,11 @@ function TabPedido({productos, materiales, temas, crearTema, clientes, setClient
           <div className="t-row big"><span>{Number(anticipo)>0?'Resta':'Total'}</span><span>{dinero(total - (Number(anticipo)||0))}</span></div>
         </> : <div className="t-row big"><span>Producción interna</span><span>{items.filter(i=>i.prodId).length} pzas</span></div>}
       </div>
+      {subiendoImgs > 0 && <div className="aviso-sub">Espera: {subiendoImgs} {subiendoImgs===1?'imagen se está subiendo':'imágenes se están subiendo'} a Drive…</div>}
+      {fallaronImgs > 0 && <div className="aviso-sub aviso-err">{fallaronImgs} {fallaronImgs===1?'imagen no se pudo subir':'imágenes no se pudieron subir'}. Vuelve a tocar la miniatura para reintentar, o crea el pedido sin ella.</div>}
       <div style={{display:'flex', gap:10, marginTop:14}}>
         {editar && <button className="btn btn-s" onClick={()=>setEditar(null)}>Cancelar edición</button>}
-        <button className="btn btn-p btn-block" onClick={confirmar}>{editar?'Guardar cambios':'Crear pedido'}</button>
+        <button className="btn btn-p btn-block" onClick={confirmar} disabled={subiendoImgs>0}>{subiendoImgs>0 ? 'Subiendo imágenes…' : (editar?'Guardar cambios':'Crear pedido')}</button>
       </div>
 
       {nuevoCliente && <Modal titulo="Nuevo cliente" onCerrar={()=>setNuevoCliente(false)}>
@@ -809,10 +867,16 @@ function TabFlujo({pedidos, setPedidos, clientes, productos, temas, cobrarYEntre
   const listo = p => p.items.every(i=>i.tBastidor && i.tImagen);
 
   const subirGuia = (p, data) => {
-    setPedidos(pedidos.map(x=>x.id!==p.id?x:{...x, envio:{...x.envio, guia:data}}));
-    avisar('Guía guardada en el pedido <b>#'+p.folio+'</b>');
-    subirImagenAuto(data, 'guia_'+p.folio, url=>{
-      setPedidos(prev=>prev.map(x=>x.id!==p.id?x:{...x, envio:{...x.envio, guia:url}}));
+    setPedidos(prev=>prev.map(x=>x.id!==p.id?x:{...x, envio:{...x.envio, guia:data, guiaEstado:'subiendo'}}));
+    subirImagenAuto(data, 'guia_'+p.folio, patch=>{
+      setPedidos(prev=>prev.map(x=>x.id!==p.id?x:{...x, envio:{
+        ...x.envio,
+        guia: patch.imagen!==undefined ? patch.imagen : x.envio.guia,
+        guiaEstado: patch.imgEstado
+      }}));
+      if(patch.imgEstado==='ok')    avisar('Guía guardada en el pedido <b>#'+p.folio+'</b>');
+      if(patch.imgEstado==='local') avisar('Guía cargada en el pedido <b>#'+p.folio+'</b>');
+      if(patch.imgEstado==='error') avisar('No se pudo subir la guía a Drive — vuelve a intentarlo');
     });
   };
 
@@ -847,7 +911,7 @@ function TabFlujo({pedidos, setPedidos, clientes, productos, temas, cobrarYEntre
                         const prod = prodDe(i.prodId, productos);
                         return (
                           <div key={i.id} className="item-row">
-                            {i.imagen ? <img className="item-thumb" src={i.imagen} alt=""/> : <div className="item-thumb-ph">Sin img</div>}
+                            <Miniatura src={i.imagen} clase="item-thumb" claseVacio="item-thumb-ph" textoVacio="Sin img"/>
                             <div className="item-info">
                               <div className="item-t">{nomTema(i.temaId)}</div>
                               <div className="item-m">{prodEtiqueta(prod)}</div>
@@ -864,7 +928,7 @@ function TabFlujo({pedidos, setPedidos, clientes, productos, temas, cobrarYEntre
                       <b>Envío · {p.envio.paqueteria || 'Paquetería por definir'}</b>
                       {p.envio.ciudad}{p.envio.direccion?' — '+p.envio.direccion:''}
                       {p.envio.guia
-                        ? <img className="guia-img" src={p.envio.guia} alt="Guía"/>
+                        ? <Miniatura src={p.envio.guia} clase="guia-img" claseVacio="guia-img img-rota" textoVacio=""/>
                         : <label className="btn btn-s btn-mini" style={{marginTop:7, display:'inline-flex'}}>Subir guía
                             <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>subirGuia(p,d)); }}/>
                           </label>}
@@ -979,7 +1043,7 @@ function ModalDetallePedido({pedido, clientes, productos, temas, onCerrar, onAbo
         const p = prodDe(i.prodId, productos);
         return (
           <div key={i.id} className="item-row" style={{marginBottom:8}}>
-            {i.imagen ? <img className="item-thumb" src={i.imagen} alt=""/> : <div className="item-thumb-ph">Sin img</div>}
+            <Miniatura src={i.imagen} clase="item-thumb" claseVacio="item-thumb-ph" textoVacio="Sin img"/>
             <div className="item-info">
               <div className="item-t">{nomTema(i.temaId)}</div>
               <div className="item-m">{prodEtiqueta(p)}</div>
@@ -990,7 +1054,7 @@ function ModalDetallePedido({pedido, clientes, productos, temas, onCerrar, onAbo
       {pedido.envio && <div className="envio-box" style={{marginTop:4}}>
         <b>Envío · {pedido.envio.paqueteria || 'Paquetería por definir'}</b>
         {pedido.envio.ciudad}{pedido.envio.direccion?' — '+pedido.envio.direccion:''}
-        {pedido.envio.guia && <img className="guia-img" src={pedido.envio.guia} alt="Guía"/>}
+        {pedido.envio.guia && <Miniatura src={pedido.envio.guia} clase="guia-img" claseVacio="guia-img img-rota" textoVacio=""/>}
       </div>}
       {pedido.destino==='cliente' && <>
         <div className="total-box" style={{margin:'14px 0'}}>
