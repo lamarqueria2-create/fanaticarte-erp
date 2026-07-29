@@ -196,6 +196,14 @@
   .subtab{background:none;border:0;padding:9px 14px;font-size:13px;font-weight:700;color:var(--gris-5);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
   .subtab.on{color:var(--negro);border-bottom-color:var(--amarillo)}
 
+  .barras-h{display:flex;flex-direction:column;gap:10px;padding:2px}
+  .barra-fila{display:grid;grid-template-columns:104px 1fr 32px;align-items:center;gap:9px}
+  .barra-et{font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .barra-pista{height:14px;background:var(--gris-1);border-radius:7px;overflow:hidden}
+  .barra-rel{height:100%;border-radius:7px;background:var(--amarillo);transition:width .2s}
+  .barra-val{font-size:12px;font-weight:800;text-align:right}
+  @media(max-width:480px){.barra-fila{grid-template-columns:74px 1fr 28px}}
+
   .caja-barra{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--gris-1);border:1px solid var(--gris-2);border-radius:9px;padding:9px 12px;font-size:12.5px;color:var(--gris-t);margin-bottom:10px}
   .cb-on{background:var(--verde);color:#fff;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
   .cb-off{background:var(--gris-4);color:#fff;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
@@ -2411,6 +2419,7 @@ function TabGastos({gastos, setGastos, catGastos, setCatGastos, avisar}){
    TAB REPORTES
    ============================================================ */
 function TabReportes({pedidos, ventas, gastos, productos, materiales, temas, clientes}){
+  const [repSub, setRepSub] = useState('general');
   const [desde, setDesde] = useState(hoyISO());
   const [hasta, setHasta] = useState(hoyISO());
   const [rapido, setRapido] = useState('hoy');
@@ -2494,6 +2503,14 @@ function TabReportes({pedidos, ventas, gastos, productos, materiales, temas, cli
       <div className="titulo">Reportes</div>
       <div className="subtitulo">Ventas, métodos de pago, piezas y temas — filtrable por fecha</div>
 
+      <div className="subtabs">
+        <button className={'subtab'+(repSub==='general'?' on':'')} onClick={()=>setRepSub('general')}>General</button>
+        <button className={'subtab'+(repSub==='pendientes'?' on':'')} onClick={()=>setRepSub('pendientes')}>Trabajos pendientes</button>
+      </div>
+
+      {repSub==='pendientes' && <ReportePendientes pedidos={pedidos} productos={productos} temas={temas} clientes={clientes}/>}
+
+      {repSub==='general' && <>
       <div className="filtros-fecha">
         <div className="chips-rapidos">
           {[['hoy','Hoy'],['semana','7 días'],['mes','Este mes'],['custom','Rango']].map(([k,t])=>
@@ -2615,13 +2632,193 @@ function TabReportes({pedidos, ventas, gastos, productos, materiales, temas, cli
         <div className="t-row"><span>Gastos del periodo</span><span>−{dinero(totalGastos)}</span></div>
         <div className="t-row big"><span>Utilidad estimada</span><span>{dinero(Math.round(ingresoTotal - costoVendido - totalGastos))}</span></div>
       </div>
+      </>}
     </div>
   );
 }
 
 /* ============================================================
-   TAB USUARIOS (permisos por módulo)
+   REPORTE: TRABAJOS PENDIENTES
+   Un pedido sale de este reporte en cuanto TODAS sus piezas
+   quedan listas (bastidor + imagen), sin importar si ya se entregó.
    ============================================================ */
+function ReportePendientes({pedidos, productos, temas, clientes}){
+  const [rapido, setRapido] = useState('todos');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [clienteFiltro, setClienteFiltro] = useState('');
+
+  const nomTema = id => (temas.find(t=>t.id===id)||{}).nombre || 'Sin tema';
+  const nomCliente = p => p.destino==='stock' ? 'Producción para stock' : (clientes.find(c=>c.id===p.clienteId)?.nombre || p.clienteNombre || 'Cliente');
+  const listo = p => p.items.every(i=>i.tBastidor && i.tImagen);
+
+  const aplicarRapido = tipo => {
+    setRapido(tipo);
+    if(tipo==='todos'){ setDesde(''); setHasta(''); }
+    if(tipo==='vencidos'){ setDesde(''); setHasta(manana(-1)); }
+    if(tipo==='hoy'){ setDesde(hoyISO()); setHasta(hoyISO()); }
+    if(tipo==='semana'){ setDesde(hoyISO()); setHasta(manana(7)); }
+  };
+
+  // Base: pedidos con trabajo pendiente, sin importar si ya se entregaron
+  const pendientesBase = pedidos.filter(p=>p.estado!=='entregado' && !listo(p));
+
+  // Opciones de cliente: solo los que de verdad tienen algo pendiente
+  const opcionesCliente = [];
+  const vistos = new Set();
+  pendientesBase.forEach(p=>{
+    const key = p.destino==='stock' ? 'stock' : p.clienteId;
+    if(key && !vistos.has(key)){ vistos.add(key); opcionesCliente.push({value:key, label:nomCliente(p)}); }
+  });
+  opcionesCliente.sort((a,b)=>a.label.localeCompare(b.label));
+
+  const enRango = f => (!desde || f>=desde) && (!hasta || f<=hasta);
+  const filtrados = pendientesBase.filter(p=>{
+    if(!enRango(p.entrega)) return false;
+    if(clienteFiltro){
+      const key = p.destino==='stock' ? 'stock' : p.clienteId;
+      if(key !== clienteFiltro) return false;
+    }
+    return true;
+  });
+
+  // Resumen por producto (medida): piezas que faltan + en cuántos pedidos aparecen
+  const porProducto = {};
+  filtrados.forEach(p=>{
+    p.items.forEach(i=>{
+      if(i.tBastidor && i.tImagen) return; // esta pieza ya está lista
+      if(!porProducto[i.prodId]) porProducto[i.prodId] = {piezas:0, pedidos:new Set()};
+      porProducto[i.prodId].piezas++;
+      porProducto[i.prodId].pedidos.add(p.id);
+    });
+  });
+  const resumen = Object.entries(porProducto).map(([prodId,v])=>({
+    prodId, etiqueta: prodEtiqueta(prodDe(prodId, productos)), piezas:v.piezas, pedidos:v.pedidos.size
+  })).sort((a,b)=>b.piezas-a.piezas);
+  const totalPiezasPend = resumen.reduce((s,r)=>s+r.piezas,0);
+  const vencidos = filtrados.filter(p=>diasPara(p.entrega)<0).length;
+
+  // Detalle: una fila por pedido + producto (solo grupos con algo pendiente)
+  const detalle = [];
+  filtrados.forEach(p=>{
+    const grupos = {};
+    p.items.forEach(i=>{ (grupos[i.prodId] = grupos[i.prodId]||[]).push(i); });
+    Object.entries(grupos).forEach(([prodId, items])=>{
+      const pend = items.filter(i=>!(i.tBastidor && i.tImagen));
+      if(pend.length===0) return;
+      detalle.push({
+        pedido:p, prod: prodDe(prodId, productos),
+        cantidadPend: pend.length, totalGrupo: items.length,
+        bastidorOk: items.filter(i=>i.tBastidor).length,
+        imagenOk: items.filter(i=>i.tImagen).length,
+        temasTxt: [...new Set(items.map(i=>nomTema(i.temaId)))].join(', ')
+      });
+    });
+  });
+  detalle.sort((a,b)=>diasPara(a.pedido.entrega)-diasPara(b.pedido.entrega));
+
+  return (
+    <div>
+      <div className="filtros-fecha">
+        <div className="chips-rapidos">
+          {[['todos','Todos'],['vencidos','Vencidos'],['hoy','Hoy'],['semana','Próx. 7 días'],['custom','Rango']].map(([k,t])=>
+            <button key={k} className={'chip-f'+(rapido===k?' on':'')} onClick={()=>k==='custom'?setRapido('custom'):aplicarRapido(k)}>{t}</button>)}
+        </div>
+        {rapido==='custom' && <>
+          <div className="campo"><label>Desde</label><input type="date" value={desde} onChange={e=>setDesde(e.target.value)}/></div>
+          <div className="campo"><label>Hasta</label><input type="date" value={hasta} onChange={e=>setHasta(e.target.value)}/></div>
+        </>}
+        <div className="campo">
+          <label>Cliente</label>
+          <select value={clienteFiltro} onChange={e=>setClienteFiltro(e.target.value)}>
+            <option value="">Todos</option>
+            {opcionesCliente.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid4" style={{marginBottom:14}}>
+        <div className="stat"><div className="s-l">Piezas pendientes</div><div className="s-v">{totalPiezasPend}</div></div>
+        <div className="stat"><div className="s-l">Pedidos con pendientes</div><div className="s-v">{filtrados.length}</div></div>
+        <div className="stat"><div className="s-l">Vencidos</div><div className="s-v" style={{color:vencidos>0?'var(--rojo)':undefined}}>{vencidos}</div></div>
+        <div className="stat"><div className="s-l">Medidas distintas</div><div className="s-v">{resumen.length}</div></div>
+      </div>
+
+      {filtrados.length===0
+        ? <Vacio t="Sin pendientes" x="No hay trabajos pendientes con este filtro"/>
+        : <>
+        <div className="grid2" style={{alignItems:'start'}}>
+          <div className="card">
+            <div className="card-h">Piezas pendientes por medida</div>
+            <table><tbody>
+              {resumen.map(r=>(
+                <tr key={r.prodId}>
+                  <td style={{fontWeight:600}}>{r.etiqueta}</td>
+                  <td className="td-num" style={{fontWeight:700}}>{r.piezas} pza</td>
+                  <td className="td-num" style={{color:'var(--gris-5)'}}>{r.pedidos} pedido{r.pedidos!==1?'s':''}</td>
+                </tr>
+              ))}
+              <tr><td style={{color:'var(--gris-5)'}}>Total</td><td className="td-num" style={{fontWeight:700}}>{totalPiezasPend} pza</td><td/></tr>
+            </tbody></table>
+          </div>
+          <div className="card">
+            <div className="card-h">Gráfico por medida</div>
+            <BarrasHorizontales datos={resumen.map(r=>({etiqueta:r.etiqueta, valor:r.piezas}))}/>
+          </div>
+        </div>
+
+        <div className="card" style={{marginTop:14}}>
+          <div className="card-h">Detalle de pedidos pendientes ({detalle.length})</div>
+          <div style={{overflowX:'auto'}}>
+          <table><tbody>
+            <tr style={{color:'var(--gris-5)', fontSize:11.5}}>
+              <td>Folio</td><td>Cliente</td><td>Entrega</td><td>Medida</td><td className="td-num">Piezas</td><td>Estado</td>
+            </tr>
+            {detalle.map((d,ix)=>{
+              const dias = diasPara(d.pedido.entrega);
+              return (
+                <tr key={ix}>
+                  <td style={{fontWeight:700}}>#{d.pedido.folio}</td>
+                  <td>{nomCliente(d.pedido)}</td>
+                  <td>
+                    {fFecha(d.pedido.entrega)}<br/>
+                    <span className={'tag '+(dias<0?'tag-rojo':(dias===0?'tag-am':'tag-gris'))}>
+                      {dias<0 ? Math.abs(dias)+'d atraso' : (dias===0?'Hoy':'en '+dias+'d')}
+                    </span>
+                  </td>
+                  <td>
+                    {d.prod ? prodEtiqueta(d.prod) : 'Producto eliminado'}
+                    {d.temasTxt && <div style={{fontSize:11, color:'var(--gris-5)'}}>{d.temasTxt}</div>}
+                  </td>
+                  <td className="td-num" style={{fontWeight:700}}>{d.cantidadPend}</td>
+                  <td><span className="tag tag-gris">Bastidor {d.bastidorOk}/{d.totalGrupo} · Imagen {d.imagenOk}/{d.totalGrupo}</span></td>
+                </tr>
+              );
+            })}
+          </tbody></table>
+          </div>
+        </div>
+        </>}
+    </div>
+  );
+}
+
+/* Gráfico simple de barras horizontales, sin librerías externas */
+function BarrasHorizontales({datos}){
+  const max = Math.max(1, ...datos.map(d=>d.valor));
+  return (
+    <div className="barras-h">
+      {datos.map((d,i)=>(
+        <div key={i} className="barra-fila">
+          <div className="barra-et" title={d.etiqueta}>{d.etiqueta}</div>
+          <div className="barra-pista"><div className="barra-rel" style={{width:(d.valor/max*100)+'%'}}/></div>
+          <div className="barra-val">{d.valor}</div>
+        </div>
+      ))}
+      {datos.length===0 && <div style={{fontSize:12.5, color:'var(--gris-5)'}}>Sin datos</div>}
+    </div>
+  );
+}
 function TabUsuarios({usuarios, setUsuarios}){
   const [editando, setEditando] = useState(null);
   const guardar = u => {
