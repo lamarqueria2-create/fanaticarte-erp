@@ -730,7 +730,7 @@ function Login({usuarios, onEntrar}){
     setPin(nuevo);
     if(nuevo.length === 4){
       const u = usuarios.find(x=>x.id===sel);
-      if(u && u.pin === nuevo){ onEntrar(u); }
+      if(u && String(u.pin) === nuevo){ onEntrar(u); }
       else { setErr(true); setTimeout(()=>{ setPin(''); setErr(false); }, 450); }
     }
   };
