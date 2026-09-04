@@ -358,15 +358,6 @@ const {useState, useEffect, useMemo, useRef} = React;
    ============================================================ */
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxTdwWhAIEIT5K2HRXM1LEhabmT7T4kydRI6Ud1dNU-TtkYMk76O-BCn4AUKF-vKsxYbg/exec';
 
-/* ============================================================
-   PEDIDOS WEB
-   Backend de la página de pedidos (fanaticarte-pedidos.vercel.app).
-   Es un Apps Script APARTE: solo lee y marca la hoja "pedidos-web".
-   Nunca escribe en "pedidos" ni en "clientes" — de eso se encarga
-   este sistema al aprobar, para que el autoguardado no lo borre.
-   ============================================================ */
-const PEDIDOS_WEB_URL = 'https://script.google.com/macros/s/AKfycbw85WVBFjPsxMY-dwT4z3KN7GC70Jqdzg0KXF3HMDJLEnMRdhhmtjqnsoQIkIGZ0VlH4w/exec';
-
 /* Una imagen es "temporal" mientras sea base64 (data:...). Esas NUNCA deben
    viajar a Google Sheets: una sola rebasa el límite de 50,000 caracteres por
    celda, Sheets la corta a la mitad y el JSON del pedido queda roto — se pierde
@@ -401,21 +392,6 @@ const API = {
     return fetch(API.URL, {
       method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({accion:'guardarTodo', ...limpio})
-    }).then(r=>r.json()).catch(()=>({ok:false}));
-  },
-  /* --- pedidos web --- */
-  listarWeb(){
-    if(!PEDIDOS_WEB_URL) return Promise.resolve([]);
-    return fetch(PEDIDOS_WEB_URL, {
-      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({accion:'listar'})
-    }).then(r=>r.json()).then(d=>(d && d.ok) ? (d.pedidos||[]) : []).catch(()=>[]);
-  },
-  marcarWeb(accion, folio, motivo){
-    if(!PEDIDOS_WEB_URL) return Promise.resolve({ok:false});
-    return fetch(PEDIDOS_WEB_URL, {
-      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({accion, folio, motivo})
     }).then(r=>r.json()).catch(()=>({ok:false}));
   },
   subirImagen(dataUrl, nombre){
@@ -470,7 +446,6 @@ const LOGO_URI = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QDsRXhpZgA
 const MODULOS = [
   {id:'hoy',       nombre:'Hoy'},
   {id:'pedido',    nombre:'Nuevo Pedido'},
-  {id:'aprobar',   nombre:'Por aprobar'},
   {id:'flujo',     nombre:'Flujo'},
   {id:'pos',       nombre:'POS'},
   {id:'ventas',    nombre:'Ventas'},
@@ -2869,174 +2844,6 @@ function BarrasHorizontales({datos}){
     </div>
   );
 }
-
-/* ============================================================
-   TAB POR APROBAR — pedidos que llegaron por la página
-   El pedido se crea aquí, en el estado del sistema, para que el
-   autoguardado lo escriba a Sheets. El backend web solo marca la
-   fila como aprobada y le manda el correo al cliente.
-   ============================================================ */
-function TabAprobar({webPedidos, cargandoWeb, recargarWeb, productos, temas, clientes, setClientes,
-                     pedidos, setPedidos, folio, setFolio, avisar}){
-  const [trabajando, setTrabajando] = useState('');
-  const [zoom, setZoom] = useState(null);
-  const [rechazando, setRechazando] = useState(null);
-  const [motivo, setMotivo] = useState('');
-
-  const nomProd = id => { const p = prodDe(id, productos); return p ? p.nombre : id; };
-  const telLimpio = t => String(t||'').replace(/\D/g,'').slice(-10);
-
-  /* Reusa el cliente si ya compró antes; si no, lo da de alta */
-  const clienteDe = w => {
-    const tel = telLimpio(w.telefono);
-    const ex = clientes.find(c=>telLimpio(c.telefono) === tel && tel);
-    if(ex) return {id:ex.id, nuevo:false};
-    const nuevo = {
-      id: uid(), nombre: w.clienteNombre || 'Cliente web',
-      telefono: tel, ciudad: w.ciudad || '',
-      comentarios: 'Pedido en línea · ' + (w.correo || '')
-    };
-    setClientes(prev=>[...prev, nuevo]);
-    return {id:nuevo.id, nuevo:true};
-  };
-
-  const aprobar = async w => {
-    if(trabajando) return;
-    if(pedidos.some(p=>String(p.folio) === String(w.folio))){
-      avisar('El pedido <b>#'+w.folio+'</b> ya estaba en el sistema');
-      return;
-    }
-    setTrabajando(w.folio);
-
-    const c = clienteDe(w);
-    const entrega = manana(3);
-    const items = (w.items||[]).map(i=>({
-      id: uid(), prodId: i.prodId, temaId: i.temaId,
-      imagen: i.imagen || null, tBastidor:false, tImagen:false
-    }));
-
-    const nuevo = {
-      id: uid(), folio: Number(w.folio), clienteId: c.id,
-      fecha: hoyISO(), entrega, estado:'produccion', destino:'cliente',
-      items, total: Number(w.total)||0, descuento:0,
-      anticipo: Number(w.total)||0, metodoAnticipo:'Transferencia',
-      pagos: [{monto:Number(w.total)||0, metodo:'Transferencia', fecha:hoyISO()}],
-      envio: null
-    };
-
-    setPedidos(prev=>[nuevo, ...prev]);
-    /* El folio web puede ir adelante del contador interno */
-    setFolio(f => Math.max(f, Number(w.folio)+1));
-
-    const r = await API.marcarWeb('aprobado', w.folio);
-    setTrabajando('');
-    if(r && r.ok){
-      avisar('Pedido <b>#'+w.folio+'</b> aprobado'+(c.nuevo?' · cliente nuevo':'')+' — se le avisó por correo');
-    }else{
-      avisar('El pedido entró al sistema, pero no se pudo avisar al cliente. Revísalo.');
-    }
-    recargarWeb();
-  };
-
-  const confirmarRechazo = async () => {
-    const w = rechazando;
-    setRechazando(null);
-    setTrabajando(w.folio);
-    await API.marcarWeb('rechazado', w.folio, motivo);
-    setMotivo(''); setTrabajando('');
-    avisar('Pedido <b>#'+w.folio+'</b> rechazado');
-    recargarWeb();
-  };
-
-  return (
-    <div>
-      <div className="titulo">Pedidos por aprobar</div>
-      <div className="subtitulo">
-        Llegaron por la página. Compara el comprobante contra el total y aprueba para mandarlos a producción.
-      </div>
-
-      <div style={{display:'flex', gap:8, marginBottom:14, alignItems:'center', flexWrap:'wrap'}}>
-        <button className="btn btn-s btn-mini" onClick={recargarWeb} disabled={cargandoWeb}>
-          {cargandoWeb ? 'Buscando…' : 'Actualizar'}
-        </button>
-        <span style={{fontSize:12.5, color:'var(--gris-5)'}}>Se revisa solo cada minuto</span>
-      </div>
-
-      {webPedidos.length===0 && !cargandoWeb &&
-        <Vacio t="Nada por aprobar" x="Cuando entre un pedido por la página, aparece aquí"/>}
-
-      {webPedidos.map(w=>(
-        <div key={w.folio} className="card" style={{borderLeft:'4px solid var(--amarillo)'}}>
-          <div className="card-h">
-            <span>Folio #{w.folio} · {fFecha(w.fecha)}</span>
-            <span className="tag tag-am">{dinero(w.total)}</span>
-          </div>
-
-          <div className="grid2" style={{marginBottom:12}}>
-            <div className="stat">
-              <div className="s-l">Cliente</div>
-              <div style={{fontWeight:600, marginTop:3}}>{w.clienteNombre}</div>
-              <div className="s-x">{w.telefono} · {w.correo}</div>
-            </div>
-            <div className="stat">
-              <div className="s-l">Comprobante de pago</div>
-              {w.comprobanteId
-                ? <button className="btn btn-s btn-mini" style={{marginTop:6}}
-                    onClick={()=>setZoom({url:'https://lh3.googleusercontent.com/d/'+w.comprobanteId+'=w1200',
-                                          abrir:w.comprobanteURL, titulo:'Comprobante #'+w.folio})}>
-                    Ver comprobante
-                  </button>
-                : <div className="s-x">Sin comprobante</div>}
-            </div>
-          </div>
-
-          <div className="card-h" style={{marginBottom:8}}>Qué pidió</div>
-          {(w.items||[]).map((i,ix)=>(
-            <div key={ix} className="item-row" style={{marginBottom:8}}>
-              <button style={{padding:0, background:'none', border:0, cursor: i.imagen?'zoom-in':'default'}}
-                onClick={()=>{ if(i.imagenId) setZoom({url:'https://lh3.googleusercontent.com/d/'+i.imagenId+'=w1200',
-                                                       abrir:'https://drive.google.com/file/d/'+i.imagenId+'/view',
-                                                       titulo:'Imagen del cliente'}); }}>
-                <Miniatura src={i.imagen} clase="item-thumb" claseVacio="item-thumb-ph" textoVacio="Sin img"/>
-              </button>
-              <div className="item-info">
-                <div className="item-t">{nomProd(i.prodId)}</div>
-                <div className="item-m">{dinero(i.precio)}</div>
-              </div>
-            </div>
-          ))}
-
-          <div className="pc-foot">
-            <button className="btn btn-rojo btn-mini" onClick={()=>setRechazando(w)} disabled={!!trabajando}>
-              Rechazar
-            </button>
-            <button className="btn btn-p" onClick={()=>aprobar(w)} disabled={!!trabajando}>
-              {trabajando===w.folio ? 'Aprobando…' : 'Aprobar y mandar a producción'}
-            </button>
-          </div>
-        </div>
-      ))}
-
-      {zoom && <Modal titulo={zoom.titulo} onCerrar={()=>setZoom(null)}>
-        <img src={zoom.url} alt="" style={{width:'100%', borderRadius:8, border:'1px solid var(--gris-2)'}}/>
-        <a className="btn btn-s btn-block" style={{marginTop:12, textDecoration:'none'}}
-           href={zoom.abrir} target="_blank" rel="noopener">Abrir en Drive (tamaño original)</a>
-      </Modal>}
-
-      {rechazando && <Modal titulo={'Rechazar pedido #'+rechazando.folio} onCerrar={()=>setRechazando(null)}>
-        <div className="subtitulo" style={{marginTop:0}}>
-          Queda marcado como rechazado y no entra a producción. Al cliente no se le manda correo: contáctalo tú.
-        </div>
-        <div className="campo"><label>Motivo</label>
-          <textarea rows="3" value={motivo} onChange={e=>setMotivo(e.target.value)}
-            placeholder="Ej. el comprobante no coincide con el monto"/>
-        </div>
-        <button className="btn btn-rojo btn-block" onClick={confirmarRechazo}>Confirmar rechazo</button>
-      </Modal>}
-    </div>
-  );
-}
-
 function TabUsuarios({usuarios, setUsuarios}){
   const [editando, setEditando] = useState(null);
   const guardar = u => {
@@ -3110,11 +2917,10 @@ function App(){
   const [catGastos, setCatGastos] = useState(CAT_GASTOS_INI);
   const [metodos, setMetodos] = useState(METODOS_INI);
   const [cajas, setCajas] = useState([]);
-  const [folio, setFolio] = useState(104);
+  const [folioTienda, setFolioTienda] = useState(101);
+  const [folioWeb, setFolioWeb] = useState(101);
   const [folioTicket, setFolioTicket] = useState(1);
 
-  const [webPedidos, setWebPedidos] = useState([]);
-  const [cargandoWeb, setCargandoWeb] = useState(false);
   const [editar, setEditar] = useState(null);
   const [entregando, setEntregando] = useState(null);
   const [toast, setToast] = useState('');
@@ -3133,15 +2939,15 @@ function App(){
         setUsuarios(USUARIOS_INI); setProductos(PRODUCTOS_INI); setMateriales(MATERIALES_INI);
         setTemas(TEMAS_INI); setCatGastos(CAT_GASTOS_INI); setMetodos(METODOS_INI);
         setPedidos([]); setVentas([]); setGastos([]); setStock([]); setClientes([]); setCajas([]);
-        setFolio(101); setFolioTicket(1);
-        API.guardarTodo({usuarios:USUARIOS_INI, productos:PRODUCTOS_INI, materiales:MATERIALES_INI, temas:TEMAS_INI, catGastos:CAT_GASTOS_INI, metodos:METODOS_INI, pedidos:[], ventas:[], gastos:[], stock:[], clientes:[], cajas:[], folio:101, folioTicket:1});
+        setFolioTienda(101); setFolioWeb(101); setFolioTicket(1);
+        API.guardarTodo({usuarios:USUARIOS_INI, productos:PRODUCTOS_INI, materiales:MATERIALES_INI, temas:TEMAS_INI, catGastos:CAT_GASTOS_INI, metodos:METODOS_INI, pedidos:[], ventas:[], gastos:[], stock:[], clientes:[], cajas:[], folioTienda:101, folioWeb:101, folioTicket:1});
       } else {
         setUsuarios(datos.usuarios); setProductos(datos.productos); setMateriales(datos.materiales);
         setTemas(datos.temas); setCatGastos(datos.catGastos && datos.catGastos.length ? datos.catGastos : CAT_GASTOS_INI);
         setMetodos(datos.metodos && datos.metodos.length ? datos.metodos : METODOS_INI);
         setPedidos(datos.pedidos||[]); setVentas(datos.ventas||[]); setGastos(datos.gastos||[]);
         setStock(datos.stock||[]); setClientes(datos.clientes||[]); setCajas(datos.cajas||[]);
-        setFolio(datos.folio || 101); setFolioTicket(datos.folioTicket || 1);
+        setFolioTienda(datos.folioTienda || 101); setFolioWeb(datos.folioWeb || 101); setFolioTicket(datos.folioTicket || 1);
       }
       setListo(true); setCargando(false);
     }).catch(()=>{
@@ -3154,24 +2960,11 @@ function App(){
   useEffect(()=>{
     if(!listo || API.MODE!=='sheets') return;
     const t = setTimeout(()=>{
-      API.guardarTodo({usuarios, productos, materiales, temas, catGastos, metodos, pedidos, ventas, gastos, stock, clientes, cajas, folio, folioTicket})
+      API.guardarTodo({usuarios, productos, materiales, temas, catGastos, metodos, pedidos, ventas, gastos, stock, clientes, cajas, folioTienda, folioWeb, folioTicket})
         .then(r=>{ if(r && r.ok===false) avisar('No se pudo guardar en Sheets, se reintentará'); });
     }, 2500);
     return ()=>clearTimeout(t);
-  }, [usuarios, productos, materiales, temas, catGastos, metodos, pedidos, ventas, gastos, stock, clientes, cajas, folio, folioTicket, listo]);
-
-  /* Pedidos que llegaron por la página: se consultan al entrar y cada minuto */
-  const recargarWeb = () => {
-    if(!PEDIDOS_WEB_URL) return;
-    setCargandoWeb(true);
-    API.listarWeb().then(lista=>{ setWebPedidos(lista); setCargandoWeb(false); });
-  };
-  useEffect(()=>{
-    if(!usuario || !PEDIDOS_WEB_URL) return;
-    recargarWeb();
-    const t = setInterval(recargarWeb, 60000);
-    return ()=>clearInterval(t);
-  }, [usuario]);
+  }, [usuarios, productos, materiales, temas, catGastos, metodos, pedidos, ventas, gastos, stock, clientes, cajas, folioTienda, folioWeb, folioTicket, listo]);
 
   const crearPedido = (datos, edit) => {
     if(edit){
@@ -3184,12 +2977,12 @@ function App(){
       return;
     }
     const nuevo = {
-      id:uid(), folio, fecha:hoyISO(), estado:'produccion', ...datos,
+      id:uid(), folio:'T-'+folioTienda, fecha:hoyISO(), estado:'produccion', ...datos,
       pagos: datos.anticipo>0 ? [{monto:datos.anticipo, metodo:datos.metodoAnticipo, fecha:hoyISO()}] : [],
     };
     setPedidos([nuevo, ...pedidos]);
-    setFolio(folio+1);
-    avisar((datos.destino==='stock'?'Producción para stock':'Pedido')+' <b>#'+folio+'</b> creado');
+    setFolioTienda(folioTienda+1);
+    avisar((datos.destino==='stock'?'Producción para stock':'Pedido')+' <b>#T-'+folioTienda+'</b> creado');
     setTab('flujo');
   };
 
@@ -3316,9 +3109,7 @@ function App(){
       <div className="nav">
         {misModulos.map(m=>(
           <button key={m.id} className={'nav-btn'+(tab===m.id?' on':'')} onClick={()=>{setTab(m.id); if(m.id!=='pedido') setEditar(null);}}>
-            {m.nombre}
-            {m.id==='flujo'   && pendientes>0     && <span className="nb-badge">{pendientes}</span>}
-            {m.id==='aprobar' && webPedidos.length>0 && <span className="nb-badge">{webPedidos.length}</span>}
+            {m.nombre}{m.id==='flujo' && pendientes>0 && <span className="nb-badge">{pendientes}</span>}
           </button>
         ))}
       </div>
@@ -3333,7 +3124,6 @@ function App(){
         {tab==='clientes'   && <TabClientes clientes={clientes} setClientes={setClientes} pedidos={pedidos} ventas={ventas} productos={productos} temas={temas}/>}
         {tab==='gastos'     && <TabGastos gastos={gastos} setGastos={setGastos} catGastos={catGastos} setCatGastos={setCatGastos} avisar={avisar}/>}
         {tab==='reportes'   && <TabReportes pedidos={pedidos} ventas={ventas} gastos={gastos} productos={productos} materiales={materiales} temas={temas} clientes={clientes}/>}
-        {tab==='aprobar'    && <TabAprobar webPedidos={webPedidos} cargandoWeb={cargandoWeb} recargarWeb={recargarWeb} productos={productos} temas={temas} clientes={clientes} setClientes={setClientes} pedidos={pedidos} setPedidos={setPedidos} folio={folio} setFolio={setFolio} avisar={avisar}/>}
         {tab==='usuarios'   && <TabUsuarios usuarios={usuarios} setUsuarios={setUsuarios}/>}
       </div>
 
