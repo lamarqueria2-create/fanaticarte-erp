@@ -3151,7 +3151,12 @@ function App(){
     if(!listo || API.MODE!=='sheets') return;
     const t = setTimeout(()=>{
       API.guardarTodo({usuarios, productos, materiales, temas, catGastos, metodos, pedidos, ventas, gastos, stock, clientes, cajas, folioTienda, folioWeb, folioTicket})
-        .then(r=>{ if(r && r.ok===false) avisar('No se pudo guardar en Sheets, se reintentará'); });
+        .then(r=>{
+          if(r && r.ok===false){
+            const detalle = (r.errores && r.errores.length) ? r.errores.join(' · ') : (r.error || 'error desconocido');
+            avisar('No se guardó todo en Sheets: <b>'+detalle+'</b>');
+          }
+        });
     }, 2500);
     return ()=>clearTimeout(t);
   }, [usuarios, productos, materiales, temas, catGastos, metodos, pedidos, ventas, gastos, stock, clientes, cajas, folioTienda, folioWeb, folioTicket, listo]);
