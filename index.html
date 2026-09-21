@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --amarillo:#FFDD00;
@@ -351,81 +352,234 @@
 const {useState, useEffect, useMemo, useRef} = React;
 
 /* ============================================================
-   CONFIGURACIÓN DE CONEXIÓN
-   Pega aquí la URL de tu Apps Script (paso final de la guía de
-   conexión) y el sistema se conecta solo — mientras esté vacía,
-   sigue funcionando en modo demo con datos de ejemplo.
+   CONEXIÓN A SUPABASE
+   La llave es PÚBLICA (es seguro que esté aquí): sin iniciar sesión
+   no se puede ver ni modificar nada del sistema. Lo controla la base
+   de datos con sus reglas de seguridad (RLS).
    ============================================================ */
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxTdwWhAIEIT5K2HRXM1LEhabmT7T4kydRI6Ud1dNU-TtkYMk76O-BCn4AUKF-vKsxYbg/exec';
+const SUPABASE_URL = 'https://rvefqimxabstnbwpixpj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_9w5erQDqvV9wmMLNuA4PZA_R1NKv5gB';
+/* Apps Script "FANATICARTE Notificaciones" (correos a clientes) */
+const NOTIFICAR_URL = 'https://script.google.com/macros/s/AKfycbynqXGjqke7WsEaKQEUo1PzR6EmOX4JehxW8Fxjc0m6P-53ZNyxp-NXe2yFn2RLYfWgTA/exec';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* Apps Script APARTE del de arriba: solo lee y marca la hoja "pedidos-web"
-   de la app de pedidos en línea (fanaticarte-pedidos). Nunca escribe en
-   "pedidos" ni en "clientes" — de eso se encarga este sistema al aprobar,
-   para que el autoguardado de aquí no lo borre. */
-const PEDIDOS_WEB_URL = 'https://script.google.com/macros/s/AKfycbw85WVBFjPsxMY-dwT4z3KN7GC70Jqdzg0KXF3HMDJLEnMRdhhmtjqnsoQIkIGZ0VlH4w/exec';
-
-/* Una imagen es "temporal" mientras sea base64 (data:...). Esas NUNCA deben
-   viajar a Google Sheets: una sola rebasa el límite de 50,000 caracteres por
-   celda, Sheets la corta a la mitad y el JSON del pedido queda roto — se pierde
-   el pedido completo al recargar. Solo se guardan URLs de Drive. */
+/* Una imagen es "temporal" mientras sea base64 (data:...): nunca se guarda
+   en la base, solo la URL definitiva cuando termina de subir. */
 const esBase64 = v => typeof v === 'string' && v.startsWith('data:');
+const urlPublica = path => path
+  ? SUPABASE_URL + '/storage/v1/object/public/imagenes-pedidos/' + path.split('/').map(encodeURIComponent).join('/')
+  : null;
 
-/* Deja el pedido listo para Sheets: quita las imágenes que todavía no se
-   subieron a Drive y las marcas temporales de progreso. No toca el estado de
-   la app, así que el usuario sigue viendo su vista previa en pantalla. */
-const pedidosParaGuardar = pedidos => (pedidos||[]).map(p=>{
+/* Deja el pedido listo para guardar: sin imágenes a medio subir ni marcas de progreso */
+const pedidoLimpio = p => {
   const items = (p.items||[]).map(i=>{
-    const {imgEstado, ...limpio} = i;               // el progreso no se guarda
+    const {imgEstado, ...limpio} = i;
     return esBase64(limpio.imagen) ? {...limpio, imagen:''} : limpio;
   });
-  let envio = p.envio;
+  let envio = p.envio || null;
   if(envio){
     const {guiaEstado, ...limpioEnvio} = envio;
     envio = esBase64(limpioEnvio.guia) ? {...limpioEnvio, guia:''} : limpioEnvio;
   }
   return {...p, items, envio};
-});
-
-const API = {
-  URL: APPS_SCRIPT_URL,
-  MODE: APPS_SCRIPT_URL ? 'sheets' : 'demo',
-  cargar(){
-    return fetch(API.URL, {method:'GET'}).then(r=>r.json());
-  },
-  guardarTodo(datos){
-    if(API.MODE!=='sheets') return Promise.resolve({ok:true});
-    const limpio = {...datos, pedidos: pedidosParaGuardar(datos.pedidos)};
-    return fetch(API.URL, {
-      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({accion:'guardarTodo', ...limpio})
-    }).then(r=>r.json()).catch(()=>({ok:false}));
-  },
-  subirImagen(dataUrl, nombre){
-    if(API.MODE!=='sheets') return Promise.resolve(null);
-    return fetch(API.URL, {
-      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({accion:'subirImagen', nombre, datos:dataUrl})
-    })
-    .then(r=>r.json())
-    .then(d=>(d && d.url) ? d.url : null)
-    .catch(()=>null);
-  },
-  /* --- pedidos que llegan por la página web --- */
-  listarWeb(){
-    if(!PEDIDOS_WEB_URL) return Promise.resolve([]);
-    return fetch(PEDIDOS_WEB_URL, {
-      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({accion:'listar'})
-    }).then(r=>r.json()).then(d=>(d && d.ok) ? (d.pedidos||[]) : []).catch(()=>[]);
-  },
-  marcarWeb(accion, folio, motivo){
-    if(!PEDIDOS_WEB_URL) return Promise.resolve({ok:false});
-    return fetch(PEDIDOS_WEB_URL, {
-      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({accion, folio, motivo})
-    }).then(r=>r.json()).catch(()=>({ok:false}));
-  }
 };
+
+const num = v => Number(v) || 0;
+const soloFecha = v => normFecha(v) || null;
+const aMediodia = v => { const s = normFecha(v); return s ? s + 'T12:00:00-07:00' : null; };
+
+/* JSON con llaves ordenadas: sirve para saber si un registro cambió de verdad */
+const estable = v => {
+  if(Array.isArray(v)) return '[' + v.map(estable).join(',') + ']';
+  if(v && typeof v === 'object') return '{' + Object.keys(v).sort().filter(k=>v[k]!==undefined)
+    .map(k=>JSON.stringify(k) + ':' + estable(v[k])).join(',') + '}';
+  return JSON.stringify(v === undefined ? null : v);
+};
+
+/* ============================================================
+   SINCRONIZACIÓN POR REGISTRO
+   Cada tabla guarda SOLO los registros que cambiaron (nunca "todo").
+   Así varias personas trabajan al mismo tiempo sin borrarse nada, y
+   los cambios de los demás llegan en tiempo real.
+   ============================================================ */
+class Sincronizador {
+  constructor(def){
+    this.def = def;
+    this.snap = new Map();      // id → firma de lo que hay en la base
+    this.enVuelo = new Map();   // id → firma que se está guardando
+    this.dbIds = new Map();     // id numérico → id del sistema (para borrados remotos)
+    this.ultima = [];
+    this.cola = Promise.resolve();
+    this.reintento = null;
+    this.setEstado = ()=>{}; this.onError = ()=>{}; this.onEstado = ()=>{};
+  }
+  firma(o){ return estable(this.def.aFila(o)); }
+  registrarFila(f){
+    const d = this.def;
+    if(d.dbId && f && f[d.dbId]!=null && f[d.pk]!=null) this.dbIds.set(String(f[d.dbId]), String(f[d.pk]));
+  }
+  async cargar(){
+    const d = this.def;
+    let q = sb.from(d.tabla).select(d.select || '*');
+    if(d.filtro) q = d.filtro(q);
+    const {data, error} = await q;
+    if(error) throw error;
+    const objs = (data||[]).map(f=>{ this.registrarFila(f); return d.desdeFila(f); });
+    this.snap = new Map(objs.map(o=>[String(o.id), this.firma(o)]));
+    this.enVuelo = new Map();
+    this.ultima = objs;
+    return objs;
+  }
+  sincronizar(lista){
+    this.ultima = lista;
+    const d = this.def, vivos = new Map();
+    lista.forEach(o=>{ if(o && o.id!=null) vivos.set(String(o.id), o); });
+    const cambios = [];
+    vivos.forEach((o, id)=>{
+      const j = this.firma(o);
+      const base = this.enVuelo.has(id) ? this.enVuelo.get(id) : this.snap.get(id);
+      if(base !== j) cambios.push({id, fila:d.aFila(o), j});
+    });
+    const borrar = [...this.snap.keys()].filter(id=>!vivos.has(id) && !this.enVuelo.has(id));
+    if(!cambios.length && !borrar.length) return;
+    cambios.forEach(c=>this.enVuelo.set(c.id, c.j));
+    borrar.forEach(id=>this.enVuelo.set(id, null));
+    this.onEstado(+1);
+    this.cola = this.cola.then(async()=>{
+      if(cambios.length){
+        const sel = d.dbId ? d.pk + ',' + d.dbId : d.pk;
+        const {data, error} = await sb.from(d.tabla).upsert(cambios.map(c=>c.fila), {onConflict:d.pk}).select(sel);
+        if(error) throw error;
+        (data||[]).forEach(f=>this.registrarFila(f));
+        cambios.forEach(c=>{ this.snap.set(c.id, c.j); if(this.enVuelo.get(c.id)===c.j) this.enVuelo.delete(c.id); });
+      }
+      for(const id of borrar){
+        const {error} = await sb.from(d.tabla).delete().eq(d.pk, id);
+        if(error) throw error;
+        this.snap.delete(id); this.enVuelo.delete(id);
+      }
+    }).catch(e=>{
+      console.error(d.tabla, e);
+      cambios.forEach(c=>this.enVuelo.delete(c.id));
+      borrar.forEach(id=>this.enVuelo.delete(id));
+      this.onError(d.tabla, e);
+      clearTimeout(this.reintento);
+      this.reintento = setTimeout(()=>this.sincronizar(this.ultima), 8000);
+    }).finally(()=>this.onEstado(-1));
+  }
+  /* Cambio hecho por otra persona (tiempo real) */
+  remoto(p){
+    const d = this.def;
+    if(p.eventType === 'DELETE'){
+      const old = p.old || {};
+      const id = old[d.pk]!=null ? String(old[d.pk])
+               : (d.dbId && old[d.dbId]!=null ? this.dbIds.get(String(old[d.dbId])) : null);
+      if(!id || !this.snap.has(id) || this.enVuelo.has(id)) return;
+      this.snap.delete(id);
+      this.setEstado(prev=>prev.filter(o=>String(o.id)!==id));
+      return;
+    }
+    const f = p.new; if(!f) return;
+    this.registrarFila(f);
+    if(d.acepta && !d.acepta(f)) return;
+    const obj = d.desdeFila(f);
+    if(this.enVuelo.has(String(obj.id))) return;   // lo estoy guardando yo: gana lo mío
+    this.integrar(obj);
+  }
+  integrar(obj){
+    const id = String(obj.id), j = this.firma(obj);
+    if(this.snap.get(id) === j) return;
+    this.snap.set(id, j);
+    this.setEstado(prev=>{
+      const i = prev.findIndex(o=>String(o.id)===id);
+      if(i < 0) return this.def.alInicio ? [obj, ...prev] : [...prev, obj];
+      const c = prev.slice(); c[i] = obj; return c;
+    });
+  }
+}
+
+/* Cómo se guarda cada parte del sistema en la base */
+const DEFS = {
+  usuarios: {tabla:'perfiles', pk:'user_id', select:'user_id,email,nombre,rol,modulos,activo',
+    desdeFila:f=>({id:f.user_id, email:f.email||'', nombre:f.nombre||'', rol:f.rol||'', modulos:f.modulos||[], activo:f.activo!==false}),
+    aFila:o=>({user_id:String(o.id), email:o.email||null, nombre:o.nombre||'', rol:o.rol||'', modulos:o.modulos||[], activo:o.activo!==false})},
+  materiales: {tabla:'materiales', pk:'codigo', dbId:'id', select:'id,codigo,nombre,unidad,costo', filtro:q=>q.order('id'),
+    desdeFila:f=>({id:f.codigo, nombre:f.nombre||'', unidad:f.unidad||'pza', costo:num(f.costo)}),
+    aFila:o=>({codigo:String(o.id), nombre:o.nombre||'', unidad:o.unidad||'pza', costo:num(o.costo)})},
+  productos: {tabla:'productos', pk:'codigo', dbId:'id', select:'id,codigo,tipo,nombre,alto,ancho,precio,activo,receta', filtro:q=>q.order('orden').order('id'),
+    desdeFila:f=>({id:f.codigo, tipo:f.tipo||'', nombre:f.nombre||'', alto:num(f.alto), ancho:num(f.ancho), precio:num(f.precio), activo:f.activo!==false, receta:f.receta||[]}),
+    aFila:o=>({codigo:String(o.id), tipo:o.tipo||'', nombre:o.nombre||'', alto:num(o.alto)||null, ancho:num(o.ancho)||null,
+               precio:num(o.precio), activo:o.activo!==false,
+               receta:(o.receta||[]).filter(r=>r && r.mat).map(r=>({mat:String(r.mat), cant:num(r.cant)}))})},
+  temas: {tabla:'temas', pk:'id', select:'id,nombre', filtro:q=>q.order('creado'),
+    desdeFila:f=>({id:f.id, nombre:f.nombre||''}),
+    aFila:o=>({id:String(o.id), nombre:o.nombre||''})},
+  stock: {tabla:'stock', pk:'id', select:'id,prod_id,tema_id,cantidad',
+    desdeFila:f=>({id:f.id, prodId:f.prod_id, temaId:f.tema_id||'', cantidad:num(f.cantidad)}),
+    aFila:o=>({id:String(o.id), prod_id:String(o.prodId||''), tema_id:o.temaId||null, cantidad:Math.round(num(o.cantidad))})},
+  clientes: {tabla:'clientes', pk:'codigo', dbId:'id', select:'id,codigo,nombre,telefono,email,ciudad,notas', filtro:q=>q.order('id'),
+    desdeFila:f=>({id:f.codigo, nombre:f.nombre||'', telefono:f.telefono||'', ciudad:f.ciudad||'', comentarios:f.notas||'', correo:f.email||''}),
+    aFila:o=>({codigo:String(o.id), nombre:o.nombre||'Cliente', telefono:o.telefono||null, email:o.correo||null,
+               ciudad:o.ciudad||null, notas:o.comentarios||null})},
+  pedidos: {tabla:'pedidos', pk:'codigo', dbId:'id', select:'id,codigo,datos', alInicio:true,
+    filtro:q=>q.not('datos','is',null).order('fecha',{ascending:false}),
+    acepta:f=>f.datos!=null,
+    desdeFila:f=>({...f.datos, id:f.codigo}),
+    aFila:o=>({codigo:String(o.id), folio:String(o.folio), cliente_codigo:o.clienteId||null,
+               origen:o.origen||'mostrador', estado:o.estado||'produccion',
+               fecha:aMediodia(o.fecha)||aMediodia(hoyISO()), entrega:soloFecha(o.entrega), destino:o.destino||null,
+               total:num(o.total), descuento:num(o.descuento), anticipo:num(o.anticipo),
+               metodo_anticipo:o.metodoAnticipo||null, fecha_entregado:aMediodia(o.fechaEntregado),
+               datos:pedidoLimpio(o)})},
+  ventas: {tabla:'ventas', pk:'id', select:'id,datos', alInicio:true, filtro:q=>q.order('creado',{ascending:false}),
+    desdeFila:f=>({...f.datos, id:f.id}),
+    aFila:o=>({id:String(o.id), folio:o.folio!=null ? (Number(o.folio)||null) : null, caja_id:o.cajaId||null,
+               fecha:soloFecha(o.fecha)||hoyISO(), hora:o.hora||null, usuario_id:o.usuarioId||null,
+               subtotal:num(o.subtotal), descuento:num(o.descuento), total:num(o.total), metodo:o.metodo||null, datos:o})},
+  gastos: {tabla:'gastos', pk:'id', select:'id,datos', alInicio:true, filtro:q=>q.order('fecha',{ascending:false}),
+    desdeFila:f=>({...f.datos, id:f.id}),
+    aFila:o=>({id:String(o.id), fecha:soloFecha(o.fecha)||hoyISO(), categoria:o.categoria||null, concepto:o.concepto||null,
+               monto:num(o.monto), metodo:o.metodo||null, datos:o})},
+  cajas: {tabla:'cajas', pk:'id', select:'id,datos', alInicio:true, filtro:q=>q.order('creado',{ascending:false}),
+    desdeFila:f=>({...f.datos, id:f.id}),
+    aFila:o=>({id:String(o.id), fecha:soloFecha(o.fecha)||hoyISO(), estado:o.estado==='abierta'?'abierta':'cerrada',
+               fondo:num(o.fondo), efectivo_contado:o.efectivoContado==null ? null : num(o.efectivoContado), datos:o})},
+};
+const SYNC = {};
+Object.keys(DEFS).forEach(k=>{ SYNC[k] = new Sincronizador(DEFS[k]); });
+const SYNC_CONFIG = new Sincronizador({tabla:'config', pk:'clave', select:'clave,valor',
+  desdeFila:f=>({id:f.clave, valor:f.valor}), aFila:o=>({clave:String(o.id), valor:o.valor})});
+
+/* Guarda cada cambio de una lista, 0.35 s después del último movimiento */
+function useAutoSync(s, valor, activo){
+  useEffect(()=>{
+    if(!activo) return;
+    const t = setTimeout(()=>s.sincronizar(valor), 350);
+    return ()=>clearTimeout(t);
+  }, [valor, activo]);
+}
+
+/* Pedidos que llegaron por la página y esperan aprobación */
+async function cargarWebPedidos(){
+  const {data, error} = await sb.from('pedidos')
+    .select('codigo,folio,fecha,total,clientes(codigo,nombre,telefono,email),' +
+            'pedido_items(num,descripcion,orientacion,cantidad,precio_unit,imagen_path,notas,productos(codigo)),' +
+            'pagos(metodo,monto,comprobante_path)')
+    .eq('estado','por_revisar').eq('origen','web').order('fecha',{ascending:true});
+  if(error) throw error;
+  return (data||[]).map(r=>{
+    const c = r.clientes || {};
+    return {
+      codigo:r.codigo, folio:r.folio, fecha:r.fecha, total:num(r.total),
+      clienteNombre:c.nombre||'Cliente web', telefono:c.telefono||'', correo:c.email||'',
+      items:(r.pedido_items||[]).slice().sort((a,b)=>a.num-b.num).map(i=>({
+        num:i.num, prodId:(i.productos||{}).codigo||'', descripcion:i.descripcion||'',
+        orientacion:i.orientacion||'', cantidad:Number(i.cantidad)||1, precio:num(i.precio_unit),
+        imagen:urlPublica(i.imagen_path), notas:i.notas||''})),
+      pago:(r.pagos||[])[0] || null
+    };
+  });
+}
 
 /* Fecha local en formato YYYY-MM-DD.
    NO usar toISOString(): convierte a UTC y, en zonas con offset negativo
@@ -670,17 +824,17 @@ const leerImagen = (file, cb) => {
   r.readAsDataURL(file);
 };
 
-/* Sube la miniatura a la carpeta de Drive y reemplaza la vista previa local
+/* Sube la miniatura a Supabase Storage y reemplaza la vista previa local
    (base64) por la URL permanente. Informa el avance con un patch:
      {imgEstado:'subiendo'} → {imagen:URL, imgEstado:'ok'} → o {imgEstado:'error'}
-   Mientras el estado no sea 'ok', la imagen no se guarda en Sheets. */
+   Mientras el estado no sea 'ok', la imagen no se guarda en la base. */
 const subirImagenAuto = (dataUrl, nombre, aplicar) => {
-  if(API.MODE!=='sheets'){ aplicar({imgEstado:'local'}); return; }
   aplicar({imgEstado:'subiendo'});
-  API.subirImagen(dataUrl, nombre).then(url=>{
-    if(url) aplicar({imagen:url, imgEstado:'ok'});
-    else    aplicar({imgEstado:'error'});
-  });
+  const path = 'erp/' + String(nombre).replace(/[^a-zA-Z0-9_-]/g, '_') + '_' + uid() + '.jpg';
+  fetch(dataUrl).then(r=>r.blob())
+    .then(blob=>sb.storage.from('imagenes-pedidos').upload(path, blob, {contentType:'image/jpeg', upsert:false}))
+    .then(({error})=>{ if(error) throw error; aplicar({imagen:urlPublica(path), imgEstado:'ok'}); })
+    .catch(e=>{ console.error(e); aplicar({imgEstado:'error'}); });
 };
 
 /* ============================================================
@@ -743,64 +897,55 @@ function SelectTema({value, onChange, temas, crearTema}){
 /* ============================================================
    LOGIN
    ============================================================ */
-function Login({usuarios, onEntrar}){
-  const [sel, setSel] = useState(null);
-  const [pin, setPin] = useState('');
-  const [err, setErr] = useState(false);
+/* Vuelve a pedir la contraseña del usuario actual (abrir y cerrar caja) */
+async function confirmarContrasena(usuario, pass){
+  if(!usuario || !usuario.email || !pass) return false;
+  const {error} = await sb.auth.signInWithPassword({email:usuario.email, password:pass});
+  return !error;
+}
 
-  const intentar = nuevo => {
-    setPin(nuevo);
-    if(nuevo.length === 4){
-      const u = usuarios.find(x=>x.id===sel);
-      if(u && String(u.pin) === nuevo){ onEntrar(u); }
-      else { setErr(true); setTimeout(()=>{ setPin(''); setErr(false); }, 450); }
-    }
-  };
-
-  const tecla = d => {
-    if(!sel) return;
-    intentar((pin + d).slice(0,4));
-  };
-
-  // Teclado físico: números para escribir, backspace para borrar
-  useEffect(()=>{
-    if(!sel) return;
-    const onKey = e => {
-      if(e.key >= '0' && e.key <= '9'){ e.preventDefault(); tecla(e.key); }
-      else if(e.key === 'Backspace'){ e.preventDefault(); setPin(p=>p.slice(0,-1)); }
-      else if(e.key === 'Escape'){ setSel(null); setPin(''); }
-    };
-    window.addEventListener('keydown', onKey);
-    return ()=>window.removeEventListener('keydown', onKey);
-  }, [sel, pin]);
-
+function PantallaMarca({texto, children}){
   return (
     <div className="login-wrap">
       <div className="login-card">
         <img className="marca-img marca-img-login" src={LOGO_URI} alt="FANATICARTE"/>
-        <div className="login-sub">Sistema de gestión</div>
-        <div className="login-users">
-          {usuarios.map(u=>(
-            <button key={u.id} className={'login-user'+(sel===u.id?' sel':'')} onClick={()=>{setSel(u.id); setPin('');}}>
-              <div className="avatar">{u.nombre.slice(0,2).toUpperCase()}</div>
-              <div><div className="lu-n">{u.nombre}</div><div className="lu-r">{u.rol}</div></div>
-            </button>
-          ))}
-        </div>
-        {sel && <>
-          <div className="pin-row">
-            {[0,1,2,3].map(i=><div key={i} className={'pin-dot'+(pin.length>i?' on':'')} style={err?{borderColor:'var(--rojo)',background:pin.length>i?'var(--rojo)':'#fff'}:{}}/>)}
-          </div>
-          <div className="pin-hint">Escribe tu PIN con el teclado o toca los números</div>
-          <div className="pin-pad">
-            {[1,2,3,4,5,6,7,8,9].map(n=><button key={n} className="pin-key" onClick={()=>tecla(String(n))}>{n}</button>)}
-            <div/>
-            <button className="pin-key" onClick={()=>tecla('0')}>0</button>
-            <button className="pin-key" onClick={()=>setPin(pin.slice(0,-1))}>←</button>
-          </div>
-        </>}
+        <div className="login-sub">{texto}</div>
+        {children}
       </div>
     </div>
+  );
+}
+
+function Login(){
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
+  const [err, setErr] = useState('');
+  const [entrando, setEntrando] = useState(false);
+
+  const entrar = async e => {
+    e.preventDefault();
+    if(!email || !pass || entrando) return;
+    setErr(''); setEntrando(true);
+    const {error} = await sb.auth.signInWithPassword({email:email.trim(), password:pass});
+    setEntrando(false);
+    if(error) setErr(/invalid/i.test(error.message) ? 'Correo o contraseña incorrectos' : error.message);
+  };
+
+  return (
+    <PantallaMarca texto="Sistema de gestión">
+      <form onSubmit={entrar} style={{textAlign:'left', marginTop:14}}>
+        <div className="campo"><label>Correo</label>
+          <input type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} placeholder="tucorreo@gmail.com"/>
+        </div>
+        <div className="campo"><label>Contraseña</label>
+          <input type="password" autoComplete="current-password" value={pass} onChange={e=>setPass(e.target.value)}/>
+        </div>
+        {err && <div style={{color:'var(--rojo)', fontSize:13, margin:'2px 0 10px'}}>{err}</div>}
+        <button className="btn btn-p btn-block" type="submit" disabled={!email || !pass || entrando}>
+          {entrando ? 'Entrando…' : 'Entrar'}
+        </button>
+      </form>
+    </PantallaMarca>
   );
 }
 
@@ -1096,7 +1241,7 @@ function TabFlujo({pedidos, setPedidos, clientes, productos, temas, cobrarYEntre
                           <div key={i.id} className="item-row">
                             <Miniatura src={i.imagen} clase="item-thumb" claseVacio="item-thumb-ph" textoVacio="Sin img"/>
                             <div className="item-info">
-                              <div className="item-t">{nomTema(i.temaId)}</div>
+                              <div className="item-t">{i.detalle || nomTema(i.temaId)}</div>
                               <div className="item-m">{prodEtiqueta(prod)}</div>
                             </div>
                             <div className="checks">
@@ -1228,7 +1373,7 @@ function ModalDetallePedido({pedido, clientes, productos, temas, onCerrar, onAbo
           <div key={i.id} className="item-row" style={{marginBottom:8}}>
             <Miniatura src={i.imagen} clase="item-thumb" claseVacio="item-thumb-ph" textoVacio="Sin img"/>
             <div className="item-info">
-              <div className="item-t">{nomTema(i.temaId)}</div>
+              <div className="item-t">{i.detalle || nomTema(i.temaId)}</div>
               <div className="item-m">{prodEtiqueta(p)}</div>
             </div>
           </div>
@@ -1477,8 +1622,13 @@ function TabPos({stock, productos, temas, ventas, metodos, cajas, usuario, usuar
 function AbrirCaja({usuario, abrirCaja, avisar}){
   const [fondo, setFondo] = useState(String(FONDO_CAJA));
   const [pin, setPin] = useState('');
-  const confirmar = () => {
-    if(pin !== String(usuario.pin)) { avisar('PIN incorrecto'); setPin(''); return; }
+  const [revisando, setRevisando] = useState(false);
+  const confirmar = async () => {
+    if(!pin || revisando) return;
+    setRevisando(true);
+    const ok = await confirmarContrasena(usuario, pin);
+    setRevisando(false);
+    if(!ok) { avisar('Contraseña incorrecta'); setPin(''); return; }
     abrirCaja(Number(fondo)||0);
   };
   return (
@@ -1489,12 +1639,12 @@ function AbrirCaja({usuario, abrirCaja, avisar}){
         <div className="campo"><label>Fondo de caja $</label>
           <input type="number" min="0" value={fondo} onChange={e=>setFondo(e.target.value)}/>
         </div>
-        <div className="campo"><label>Tu PIN ({usuario.nombre})</label>
-          <input type="password" inputMode="numeric" maxLength="4" value={pin} placeholder="····"
-                 onChange={e=>setPin(e.target.value.replace(/\D/g,''))}
+        <div className="campo"><label>Tu contraseña ({usuario.nombre})</label>
+          <input type="password" autoComplete="current-password" value={pin} placeholder="Contraseña del sistema"
+                 onChange={e=>setPin(e.target.value)}
                  onKeyDown={e=>{ if(e.key==='Enter') confirmar(); }}/>
         </div>
-        <button className="btn btn-p btn-block" onClick={confirmar} disabled={pin.length<4}>Abrir caja</button>
+        <button className="btn btn-p btn-block" onClick={confirmar} disabled={!pin || revisando}>{revisando ? 'Verificando…' : 'Abrir caja'}</button>
       </div>
     </div>
   );
@@ -1541,6 +1691,7 @@ function PosVender({caja, stock, productos, temas, metodos, usuario, venderStock
 
   const finalizar = datos => {
     const venta = venderStock({carrito, subtotal, total, descuento:Number(descuento)||0, ...datos});
+    if(!venta) return null;
     setCarrito([]); setDescuento(0); setCobrando(false); setAbierto(null); setBusca('');
     return venta;
   };
@@ -1905,8 +2056,13 @@ function ModalCerrarCaja({caja, ventas, usuario, onCerrar, onConfirmar}){
   const esperado = caja.fondo + efectivo;
   const dif = contado==='' ? null : (Number(contado)||0) - esperado;
 
-  const confirmar = () => {
-    if(pin !== String(usuario.pin)) { setPin(''); return; }
+  const [revisando, setRevisando] = useState(false);
+  const confirmar = async () => {
+    if(!pin || revisando) return;
+    setRevisando(true);
+    const ok = await confirmarContrasena(usuario, pin);
+    setRevisando(false);
+    if(!ok) { setPin(''); alert('Contraseña incorrecta'); return; }
     onConfirmar(contado===''?null:Number(contado)||0, nota);
   };
 
@@ -1924,12 +2080,12 @@ function ModalCerrarCaja({caja, ventas, usuario, onCerrar, onConfirmar}){
       <div className="campo" style={{marginTop:10}}><label>Nota (opcional)</label>
         <textarea rows="2" value={nota} onChange={e=>setNota(e.target.value)} placeholder="Ej. faltó cambio, se pagó envío de caja chica…"/>
       </div>
-      <div className="campo"><label>Tu PIN ({usuario.nombre})</label>
-        <input type="password" inputMode="numeric" maxLength="4" value={pin} placeholder="····"
-               onChange={e=>setPin(e.target.value.replace(/\D/g,''))}
+      <div className="campo"><label>Tu contraseña ({usuario.nombre})</label>
+        <input type="password" autoComplete="current-password" value={pin} placeholder="Contraseña del sistema"
+               onChange={e=>setPin(e.target.value)}
                onKeyDown={e=>{ if(e.key==='Enter') confirmar(); }}/>
       </div>
-      <button className="btn btn-p btn-block" onClick={confirmar} disabled={pin.length<4}>Cerrar caja</button>
+      <button className="btn btn-p btn-block" onClick={confirmar} disabled={!pin || revisando}>{revisando ? 'Verificando…' : 'Cerrar caja'}</button>
     </Modal>
   );
 }
@@ -2875,73 +3031,45 @@ function BarrasHorizontales({datos}){
    El folio web ("103" en pedidos-web) se guarda con prefijo "W-"
    para no chocar nunca con los folios de tienda ("T-101"...).
    ============================================================ */
-function TabAprobar({webPedidos, cargandoWeb, recargarWeb, productos, temas, clientes, setClientes, pedidos, setPedidos, avisar}){
+function TabAprobar({webPedidos, cargandoWeb, recargarWeb, aprobarWeb, rechazarWeb, avisar}){
   const [trabajando, setTrabajando] = useState('');
   const [zoom, setZoom] = useState(null);
   const [rechazando, setRechazando] = useState(null);
   const [motivo, setMotivo] = useState('');
 
-  const nomProd = id => { const p = prodDe(id, productos); return p ? p.nombre : id; };
-  const telLimpio = t => String(t||'').replace(/\D/g,'').slice(-10);
-
-  /* Reusa el cliente si ya compró antes; si no, lo da de alta */
-  const clienteDe = w => {
-    const tel = telLimpio(w.telefono);
-    const ex = clientes.find(c=>telLimpio(c.telefono) === tel && tel);
-    if(ex) return {id:ex.id, nuevo:false};
-    const nuevo = {
-      id: uid(), nombre: w.clienteNombre || 'Cliente web',
-      telefono: tel, ciudad: w.ciudad || '',
-      comentarios: 'Pedido en línea · ' + (w.correo || '')
-    };
-    setClientes(prev=>[...prev, nuevo]);
-    return {id:nuevo.id, nuevo:true};
+  const verComprobante = async w => {
+    if(!w.pago || !w.pago.comprobante_path) return;
+    const {data, error} = await sb.storage.from('comprobantes').createSignedUrl(w.pago.comprobante_path, 600);
+    if(error || !data){ avisar('No se pudo abrir el comprobante'); return; }
+    const url = data.signedUrl;
+    if(/\.pdf$/i.test(w.pago.comprobante_path)) window.open(url, '_blank', 'noopener');
+    else setZoom({url, abrir:url, titulo:'Comprobante #'+w.folio});
   };
 
   const aprobar = async w => {
     if(trabajando) return;
-    const folioNuevo = 'W-'+w.folio;
-    if(pedidos.some(p=>String(p.folio) === folioNuevo)){
-      avisar('El pedido <b>#'+folioNuevo+'</b> ya estaba en el sistema');
-      return;
+    setTrabajando(w.codigo);
+    try{
+      const correo = await aprobarWeb(w);
+      avisar('Pedido <b>#'+w.folio+'</b> aprobado'+(correo ? ' — se le avisó por correo' : ' · no se pudo mandar el correo, avísale tú'));
+    }catch(e){
+      avisar('No se aprobó: <b>'+(e.message||e)+'</b>');
+      recargarWeb();
     }
-    setTrabajando(w.folio);
-
-    const c = clienteDe(w);
-    const entrega = manana(3);
-    const items = (w.items||[]).map(i=>({
-      id: uid(), prodId: i.prodId, temaId: i.temaId,
-      imagen: i.imagen || null, tBastidor:false, tImagen:false
-    }));
-
-    const nuevo = {
-      id: uid(), folio: folioNuevo, clienteId: c.id,
-      fecha: hoyISO(), entrega, estado:'produccion', destino:'cliente',
-      items, total: Number(w.total)||0, descuento:0,
-      anticipo: Number(w.total)||0, metodoAnticipo:'Transferencia',
-      pagos: [{monto:Number(w.total)||0, metodo:'Transferencia', fecha:hoyISO()}],
-      envio: null
-    };
-
-    setPedidos(prev=>[nuevo, ...prev]);
-
-    const r = await API.marcarWeb('aprobado', w.folio);
     setTrabajando('');
-    if(r && r.ok){
-      avisar('Pedido <b>#'+folioNuevo+'</b> aprobado'+(c.nuevo?' · cliente nuevo':'')+' — se le avisó por correo');
-    }else{
-      avisar('El pedido entró al sistema, pero no se pudo avisar al cliente. Revísalo.');
-    }
-    recargarWeb();
   };
 
   const confirmarRechazo = async () => {
     const w = rechazando;
     setRechazando(null);
-    setTrabajando(w.folio);
-    await API.marcarWeb('rechazado', w.folio, motivo);
+    setTrabajando(w.codigo);
+    try{
+      await rechazarWeb(w, motivo);
+      avisar('Pedido <b>#'+w.folio+'</b> rechazado');
+    }catch(e){
+      avisar('No se rechazó: <b>'+(e.message||e)+'</b>');
+    }
     setMotivo(''); setTrabajando('');
-    avisar('Pedido <b>#W-'+w.folio+'</b> rechazado');
     recargarWeb();
   };
 
@@ -2954,16 +3082,18 @@ function TabAprobar({webPedidos, cargandoWeb, recargarWeb, productos, temas, cli
         <button className="btn btn-s btn-mini" onClick={recargarWeb} disabled={cargandoWeb}>
           {cargandoWeb ? 'Buscando…' : 'Actualizar'}
         </button>
-        <span style={{fontSize:12.5, color:'var(--gris-5)'}}>Se revisa solo cada minuto</span>
+        <span style={{fontSize:12.5, color:'var(--gris-5)'}}>Se actualiza solo cuando entra un pedido</span>
       </div>
 
       {webPedidos.length===0 && !cargandoWeb &&
         <Vacio t="Nada por aprobar" x="Cuando entre un pedido por la página, aparece aquí"/>}
 
-      {webPedidos.map(w=>(
-        <div key={w.folio} className="card" style={{borderLeft:'4px solid var(--amarillo)'}}>
+      {webPedidos.map(w=>{
+        const suma = w.items.reduce((s,i)=>s+i.precio*i.cantidad,0);
+        return (
+        <div key={w.codigo} className="card" style={{borderLeft:'4px solid var(--amarillo)'}}>
           <div className="card-h">
-            <span>Folio #W-{w.folio} · {fFecha(w.fecha)}</span>
+            <span>Folio #{w.folio} · {fFechaHora(w.fecha)}</span>
             <span className="tag tag-am">{dinero(w.total)}</span>
           </div>
 
@@ -2974,51 +3104,47 @@ function TabAprobar({webPedidos, cargandoWeb, recargarWeb, productos, temas, cli
               <div className="s-x">{w.telefono} · {w.correo}</div>
             </div>
             <div className="stat">
-              <div className="s-l">Comprobante de pago</div>
-              {w.comprobanteId
-                ? <button className="btn btn-s btn-mini" style={{marginTop:6}}
-                    onClick={()=>setZoom({url:'https://lh3.googleusercontent.com/d/'+w.comprobanteId+'=w1200',
-                                          abrir:w.comprobanteURL, titulo:'Comprobante #W-'+w.folio})}>
-                    Ver comprobante
-                  </button>
+              <div className="s-l">Pago {w.pago ? '· '+w.pago.metodo+' '+dinero(w.pago.monto) : ''}</div>
+              {w.pago && w.pago.comprobante_path
+                ? <button className="btn btn-s btn-mini" style={{marginTop:6}} onClick={()=>verComprobante(w)}>Ver comprobante</button>
                 : <div className="s-x">Sin comprobante</div>}
             </div>
           </div>
 
           <div className="card-h" style={{marginBottom:8}}>Qué pidió</div>
-          {(w.items||[]).map((i,ix)=>(
-            <div key={ix} className="item-row" style={{marginBottom:8}}>
-              <button style={{padding:0, background:'none', border:0, cursor: i.imagen?'zoom-in':'default'}}
-                onClick={()=>{ if(i.imagenId) setZoom({url:'https://lh3.googleusercontent.com/d/'+i.imagenId+'=w1200',
-                                                       abrir:'https://drive.google.com/file/d/'+i.imagenId+'/view',
-                                                       titulo:'Imagen del cliente'}); }}>
+          {w.items.map(i=>(
+            <div key={i.num} className="item-row" style={{marginBottom:8}}>
+              <button style={{padding:0, background:'none', border:0, cursor:i.imagen?'zoom-in':'default'}}
+                onClick={()=>{ if(i.imagen) setZoom({url:i.imagen, abrir:i.imagen, titulo:'Imagen · '+i.descripcion}); }}>
                 <Miniatura src={i.imagen} clase="item-thumb" claseVacio="item-thumb-ph" textoVacio="Sin img"/>
               </button>
               <div className="item-info">
-                <div className="item-t">{nomProd(i.prodId)}</div>
-                <div className="item-m">{dinero(i.precio)}</div>
+                <div className="item-t">{i.descripcion}{i.cantidad>1 ? ' × '+i.cantidad : ''}</div>
+                <div className="item-m">{dinero(i.precio*i.cantidad)}{i.notas ? ' · '+i.notas : ''}</div>
               </div>
             </div>
           ))}
+          {Math.round(suma)!==Math.round(w.total) &&
+            <div className="s-x" style={{color:'var(--rojo)'}}>Ojo: la suma de piezas ({dinero(suma)}) no coincide con el total.</div>}
 
           <div className="pc-foot">
             <button className="btn btn-rojo btn-mini" onClick={()=>setRechazando(w)} disabled={!!trabajando}>
               Rechazar
             </button>
             <button className="btn btn-p" onClick={()=>aprobar(w)} disabled={!!trabajando}>
-              {trabajando===w.folio ? 'Aprobando…' : 'Aprobar y mandar a producción'}
+              {trabajando===w.codigo ? 'Aprobando…' : 'Aprobar y mandar a producción'}
             </button>
           </div>
         </div>
-      ))}
+      );})}
 
       {zoom && <Modal titulo={zoom.titulo} onCerrar={()=>setZoom(null)}>
         <img src={zoom.url} alt="" style={{width:'100%', borderRadius:8, border:'1px solid var(--gris-2)'}}/>
         <a className="btn btn-s btn-block" style={{marginTop:12, textDecoration:'none'}}
-           href={zoom.abrir} target="_blank" rel="noopener">Abrir en Drive (tamaño original)</a>
+           href={zoom.abrir} target="_blank" rel="noopener">Abrir tamaño original (clic derecho → Guardar)</a>
       </Modal>}
 
-      {rechazando && <Modal titulo={'Rechazar pedido #W-'+rechazando.folio} onCerrar={()=>setRechazando(null)}>
+      {rechazando && <Modal titulo={'Rechazar pedido #'+rechazando.folio} onCerrar={()=>setRechazando(null)}>
         <div className="subtitulo" style={{marginTop:0}}>
           Queda marcado como rechazado y no entra a producción. Al cliente no se le manda correo: contáctalo tú.
         </div>
@@ -3032,11 +3158,10 @@ function TabAprobar({webPedidos, cargandoWeb, recargarWeb, productos, temas, cli
   );
 }
 
-function TabUsuarios({usuarios, setUsuarios}){
+function TabUsuarios({usuarios, setUsuarios, usuario}){
   const [editando, setEditando] = useState(null);
   const guardar = u => {
-    if(u.id) setUsuarios(usuarios.map(x=>x.id===u.id?u:x));
-    else setUsuarios([...usuarios, {...u, id:uid()}]);
+    setUsuarios(usuarios.map(x=>x.id===u.id ? {...u, nombre:u.nombre.trim()} : x));
     setEditando(null);
   };
   const togglePerm = (u, mod) => {
@@ -3046,41 +3171,58 @@ function TabUsuarios({usuarios, setUsuarios}){
   return (
     <div>
       <div className="titulo">Usuarios</div>
-      <div className="subtitulo">Cada usuario ve solo los módulos que le asignes</div>
+      <div className="subtitulo">Cada usuario entra con su correo y contraseña, y ve solo los módulos que le asignes</div>
       <div className="card">
-        <div className="card-h">Equipo <button className="btn btn-p btn-mini" onClick={()=>setEditando({nombre:'', rol:'', pin:'', modulos:['hoy','flujo']})}>+ Nuevo usuario</button></div>
+        <div className="card-h">Equipo</div>
         <table>
           <thead><tr><th>Usuario</th><th>Rol</th><th>Módulos</th><th></th></tr></thead>
           <tbody>
             {usuarios.map(u=>(
-              <tr key={u.id}>
-                <td style={{fontWeight:600}}>{u.nombre}</td>
-                <td>{u.rol}</td>
+              <tr key={u.id} style={u.activo ? {} : {opacity:.5}}>
+                <td><div style={{fontWeight:600}}>{u.nombre}</div><div style={{fontSize:12, color:'var(--gris-5)'}}>{u.email}</div></td>
+                <td>{u.rol}{!u.activo && <span className="tag tag-gris" style={{marginLeft:6}}>Sin acceso</span>}</td>
                 <td><span className="tag tag-gris">{u.modulos.length} de {MODULOS.length}</span></td>
-                <td style={{textAlign:'right'}}><button className="btn btn-s btn-mini" onClick={()=>setEditando({...u, pin:String(u.pin||''), modulos:[...u.modulos]})}>Editar</button></td>
+                <td style={{textAlign:'right'}}><button className="btn btn-s btn-mini" onClick={()=>setEditando({...u, modulos:[...u.modulos]})}>Editar</button></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {editando && <Modal titulo={editando.id?'Editar usuario':'Nuevo usuario'} onCerrar={()=>setEditando(null)}>
+      <div className="card">
+        <div className="card-h">Agregar a alguien</div>
+        <div style={{fontSize:13.5, lineHeight:1.6}}>
+          1. En <b>Supabase → Authentication → Users</b> da clic en <b>Add user → Create new user</b>.<br/>
+          2. Escribe su correo y una contraseña, y marca <b>Auto Confirm User</b>.<br/>
+          3. Aparece aquí solo. Da clic en <b>Editar</b> para ponerle nombre, rol y módulos.
+        </div>
+      </div>
+      {editando && <Modal titulo="Editar usuario" onCerrar={()=>setEditando(null)}>
         <div className="grid2">
           <div className="campo"><label>Nombre</label><input value={editando.nombre} onChange={e=>setEditando({...editando, nombre:e.target.value})}/></div>
           <div className="campo"><label>Rol</label><input value={editando.rol} placeholder="Ventas, Producción…" onChange={e=>setEditando({...editando, rol:e.target.value})}/></div>
         </div>
-        <div className="campo"><label>PIN (4 dígitos)</label><input maxLength="4" value={String(editando.pin||'')} onChange={e=>setEditando({...editando, pin:e.target.value.replace(/\D/g,'')})}/></div>
+        <div className="campo"><label>Correo</label><input value={editando.email} disabled/></div>
+        <div className="campo">
+          <label className="perm-item" style={{display:'inline-flex'}}>
+            <input type="checkbox" checked={editando.activo} disabled={editando.id===usuario.id}
+                   onChange={()=>setEditando({...editando, activo:!editando.activo})}/>
+            Tiene acceso al sistema
+          </label>
+        </div>
         <div className="campo">
           <label>Módulos con acceso</label>
           <div className="perm-grid">
             {MODULOS.map(m=>(
               <label key={m.id} className="perm-item">
-                <input type="checkbox" checked={editando.modulos.includes(m.id)} onChange={()=>togglePerm(editando, m.id)}/>
+                <input type="checkbox" checked={editando.modulos.includes(m.id)}
+                       disabled={editando.id===usuario.id && m.id==='usuarios'}
+                       onChange={()=>togglePerm(editando, m.id)}/>
                 {m.nombre}
               </label>
             ))}
           </div>
         </div>
-        <button className="btn btn-p btn-block" onClick={()=>guardar(editando)} disabled={!editando.nombre || String(editando.pin||'').length!==4}>Guardar usuario</button>
+        <button className="btn btn-p btn-block" onClick={()=>guardar(editando)} disabled={!editando.nombre.trim() || !editando.modulos.length}>Guardar usuario</button>
       </Modal>}
     </div>
   );
@@ -3090,93 +3232,153 @@ function TabUsuarios({usuarios, setUsuarios}){
    APP
    ============================================================ */
 function App(){
-  const [usuarios, setUsuarios] = useState(USUARIOS_INI);
-  const [usuario, setUsuario] = useState(null);
+  const [sesion, setSesion] = useState(undefined);        // undefined = revisando
+  const [estadoCarga, setEstadoCarga] = useState('inicio'); // inicio · cargando · listo · error
+  const [usuarios, setUsuarios] = useState([]);
   const [tab, setTab] = useState('hoy');
 
-  const [materiales, setMateriales] = useState(MATERIALES_INI);
-  const [productos, setProductos] = useState(PRODUCTOS_INI);
-  const [temas, setTemas] = useState(TEMAS_INI);
-  const [stock, setStock] = useState(STOCK_INI);
-  const [clientes, setClientes] = useState(CLIENTES_INI);
-  const [pedidos, setPedidos] = useState(PEDIDOS_INI);
-  const [ventas, setVentas] = useState(VENTAS_INI);
-  const [gastos, setGastos] = useState(GASTOS_INI);
+  const [materiales, setMateriales] = useState([]);
+  const [productos, setProductos] = useState([]);
+  const [temas, setTemas] = useState([]);
+  const [stock, setStock] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [pedidos, setPedidos] = useState([]);
+  const [ventas, setVentas] = useState([]);
+  const [gastos, setGastos] = useState([]);
   const [catGastos, setCatGastos] = useState(CAT_GASTOS_INI);
   const [metodos, setMetodos] = useState(METODOS_INI);
   const [cajas, setCajas] = useState([]);
-  const [folioTienda, setFolioTienda] = useState(101);
-  const [folioWeb, setFolioWeb] = useState(101);
-  const [folioTicket, setFolioTicket] = useState(1);
+  const [folioTicket, setFolioTicket] = useState(null);   // folio reservado para la siguiente venta
 
   const [editar, setEditar] = useState(null);
   const [webPedidos, setWebPedidos] = useState([]);
   const [cargandoWeb, setCargandoWeb] = useState(false);
   const [entregando, setEntregando] = useState(null);
   const [toast, setToast] = useState('');
-  const [listo, setListo] = useState(API.MODE!=='sheets');
-  const [cargando, setCargando] = useState(API.MODE==='sheets');
-  const avisar = m => { setToast(m); setTimeout(()=>setToast(''), 2600); };
+  const [guardando, setGuardando] = useState(0);
+  const avisar = m => { setToast(m); setTimeout(()=>setToast(''), 3200); };
   const crearTema = nombre => { const t = {id:uid(), nombre}; setTemas(prev=>[...prev, t]); return t.id; };
 
-  // Carga inicial desde Google Sheets (si está conectado)
-  useEffect(()=>{
-    if(API.MODE!=='sheets') return;
-    API.cargar().then(datos=>{
-      const vacio = !datos.usuarios || datos.usuarios.length===0;
-      if(vacio){
-        // Primera vez: sembramos catálogo base para que el login y las bases funcionen de inmediato
-        setUsuarios(USUARIOS_INI); setProductos(PRODUCTOS_INI); setMateriales(MATERIALES_INI);
-        setTemas(TEMAS_INI); setCatGastos(CAT_GASTOS_INI); setMetodos(METODOS_INI);
-        setPedidos([]); setVentas([]); setGastos([]); setStock([]); setClientes([]); setCajas([]);
-        setFolioTienda(101); setFolioWeb(101); setFolioTicket(1);
-        API.guardarTodo({usuarios:USUARIOS_INI, productos:PRODUCTOS_INI, materiales:MATERIALES_INI, temas:TEMAS_INI, catGastos:CAT_GASTOS_INI, metodos:METODOS_INI, pedidos:[], ventas:[], gastos:[], stock:[], clientes:[], cajas:[], folioTienda:101, folioWeb:101, folioTicket:1});
-      } else {
-        setUsuarios(datos.usuarios); setProductos(datos.productos); setMateriales(datos.materiales);
-        setTemas(datos.temas); setCatGastos(datos.catGastos && datos.catGastos.length ? datos.catGastos : CAT_GASTOS_INI);
-        setMetodos(datos.metodos && datos.metodos.length ? datos.metodos : METODOS_INI);
-        setPedidos(datos.pedidos||[]); setVentas(datos.ventas||[]); setGastos(datos.gastos||[]);
-        setStock(datos.stock||[]); setClientes(datos.clientes||[]); setCajas(datos.cajas||[]);
-        setFolioTienda(datos.folioTienda || 101); setFolioWeb(datos.folioWeb || 101); setFolioTicket(datos.folioTicket || 1);
-      }
-      setListo(true); setCargando(false);
-    }).catch(()=>{
-      avisar('No se pudo conectar con Google Sheets — revisa la URL del Apps Script');
-      setListo(true); setCargando(false);
+  const listo = estadoCarga === 'listo';
+  const uidSesion = sesion ? sesion.user.id : null;
+  const usuario = usuarios.find(u=>u.id===uidSesion) || null;
+
+  /* ---------- Conexión de cada lista con su tabla ---------- */
+  const setters = {usuarios:setUsuarios, materiales:setMateriales, productos:setProductos, temas:setTemas,
+                   stock:setStock, clientes:setClientes, pedidos:setPedidos, ventas:setVentas,
+                   gastos:setGastos, cajas:setCajas};
+  const errorGuardado = (tabla, e) => avisar('No se pudo guardar ('+tabla+'): <b>'+(e.message||e)+'</b> — se reintenta solo');
+  Object.keys(setters).forEach(k=>{
+    SYNC[k].setEstado = setters[k]; SYNC[k].onError = errorGuardado;
+    SYNC[k].onEstado = d=>setGuardando(n=>Math.max(0, n+d));
+  });
+  const configRef = useRef({catGastos, metodos});
+  configRef.current = {catGastos, metodos};
+  SYNC_CONFIG.setEstado = fn => {
+    const prev = [{id:'catGastos', valor:configRef.current.catGastos}, {id:'metodos', valor:configRef.current.metodos}];
+    fn(prev).forEach(c=>{
+      if(c.id==='catGastos' && Array.isArray(c.valor)) setCatGastos(c.valor);
+      if(c.id==='metodos'   && Array.isArray(c.valor)) setMetodos(c.valor);
     });
+  };
+  SYNC_CONFIG.onError = errorGuardado;
+  SYNC_CONFIG.onEstado = d=>setGuardando(n=>Math.max(0, n+d));
+  const configLista = useMemo(()=>[{id:'catGastos', valor:catGastos}, {id:'metodos', valor:metodos}], [catGastos, metodos]);
+
+  useAutoSync(SYNC.usuarios,   usuarios,   listo);
+  useAutoSync(SYNC.materiales, materiales, listo);
+  useAutoSync(SYNC.productos,  productos,  listo);
+  useAutoSync(SYNC.temas,      temas,      listo);
+  useAutoSync(SYNC.stock,      stock,      listo);
+  useAutoSync(SYNC.clientes,   clientes,   listo);
+  useAutoSync(SYNC.pedidos,    pedidos,    listo);
+  useAutoSync(SYNC.ventas,     ventas,     listo);
+  useAutoSync(SYNC.gastos,     gastos,     listo);
+  useAutoSync(SYNC.cajas,      cajas,      listo);
+  useAutoSync(SYNC_CONFIG,     configLista, listo);
+
+  /* ---------- Sesión ---------- */
+  useEffect(()=>{
+    sb.auth.getSession().then(({data})=>setSesion(data.session || null));
+    const {data:{subscription}} = sb.auth.onAuthStateChange((_evento, s)=>setSesion(s || null));
+    return ()=>subscription.unsubscribe();
   }, []);
 
-  // Autoguardado: 2.5s después del último cambio, se sube todo el estado a Sheets
-  useEffect(()=>{
-    if(!listo || API.MODE!=='sheets') return;
-    const t = setTimeout(()=>{
-      API.guardarTodo({usuarios, productos, materiales, temas, catGastos, metodos, pedidos, ventas, gastos, stock, clientes, cajas, folioTienda, folioWeb, folioTicket})
-        .then(r=>{
-          if(r && r.ok===false){
-            const detalle = (r.errores && r.errores.length) ? r.errores.join(' · ') : (r.error || 'error desconocido');
-            avisar('No se guardó todo en Sheets: <b>'+detalle+'</b>');
-          }
-        });
-    }, 2500);
-    return ()=>clearTimeout(t);
-  }, [usuarios, productos, materiales, temas, catGastos, metodos, pedidos, ventas, gastos, stock, clientes, cajas, folioTienda, folioWeb, folioTicket, listo]);
+  const salir = () => { sb.auth.signOut().finally(()=>location.reload()); };
 
-  /* Pedidos que llegaron por la página web: se consultan al entrar y cada minuto */
+  /* Avisa si alguien cierra la página mientras se guarda algo */
+  useEffect(()=>{
+    const h = e => { if(guardando>0){ e.preventDefault(); e.returnValue=''; } };
+    window.addEventListener('beforeunload', h);
+    return ()=>window.removeEventListener('beforeunload', h);
+  }, [guardando]);
+
+  /* ---------- Pedidos web por aprobar ---------- */
   const recargarWeb = () => {
-    if(!PEDIDOS_WEB_URL) return;
     setCargandoWeb(true);
-    API.listarWeb().then(lista=>{ setWebPedidos(lista); setCargandoWeb(false); });
+    cargarWebPedidos().then(setWebPedidos).catch(e=>console.error('web', e)).finally(()=>setCargandoWeb(false));
   };
-  useEffect(()=>{
-    if(!usuario || !PEDIDOS_WEB_URL) return;
-    recargarWeb();
-    const t = setInterval(recargarWeb, 60000);
-    return ()=>clearInterval(t);
-  }, [usuario]);
 
-  const crearPedido = (datos, edit) => {
+  /* ---------- Carga inicial + tiempo real ---------- */
+  useEffect(()=>{
+    if(!uidSesion) return;
+    let vivo = true, canal = null;
+    (async()=>{
+      setEstadoCarga('cargando');
+      try{
+        const claves = Object.keys(SYNC);
+        const datos = await Promise.all(claves.map(k=>SYNC[k].cargar()));
+        const conf = await SYNC_CONFIG.cargar();
+        if(!vivo) return;
+        claves.forEach((k,i)=>setters[k](datos[i]));
+        conf.forEach(c=>{
+          if(c.id==='catGastos' && Array.isArray(c.valor)) setCatGastos(c.valor);
+          if(c.id==='metodos'   && Array.isArray(c.valor)) setMetodos(c.valor);
+        });
+        canal = sb.channel('erp-' + uid());
+        Object.values(SYNC).concat([SYNC_CONFIG]).forEach(s=>{
+          canal.on('postgres_changes', {event:'*', schema:'public', table:s.def.tabla}, p=>s.remoto(p));
+        });
+        let espera = null;
+        canal.on('postgres_changes', {event:'*', schema:'public', table:'pedidos'}, p=>{
+          clearTimeout(espera);
+          /* un pedido nuevo tarda unos segundos en subir sus imágenes */
+          espera = setTimeout(recargarWeb, p.eventType==='INSERT' ? 20000 : 1500);
+        });
+        canal.subscribe();
+        recargarWeb();
+        setEstadoCarga('listo');
+      }catch(e){
+        console.error(e);
+        if(vivo) setEstadoCarga('error');
+      }
+    })();
+    const t = setInterval(()=>{ if(vivo) recargarWeb(); }, 120000);
+    return ()=>{ vivo = false; clearInterval(t); if(canal) sb.removeChannel(canal); };
+  }, [uidSesion]);
+
+  /* Primer módulo permitido al entrar */
+  useEffect(()=>{
+    if(usuario && !usuario.modulos.includes(tab)) setTab(usuario.modulos[0] || 'hoy');
+  }, [usuario && usuario.id, usuario && usuario.modulos.join(',')]);
+
+  /* Folio del siguiente ticket: se aparta mientras el POS está abierto */
+  useEffect(()=>{
+    if(!listo || tab!=='pos' || folioTicket!==null) return;
+    let vivo = true, t = null;
+    const pedir = () => sb.rpc('siguiente_folio', {p_nombre:'ticket'}).then(({data, error})=>{
+      if(!vivo) return;
+      if(error){ t = setTimeout(pedir, 5000); return; }
+      setFolioTicket(Number(data));
+    });
+    pedir();
+    return ()=>{ vivo = false; clearTimeout(t); };
+  }, [listo, tab, folioTicket]);
+
+  /* ---------- Pedidos ---------- */
+  const crearPedido = async (datos, edit) => {
     if(edit){
-      setPedidos(pedidos.map(p=>p.id!==edit.id?p:{
+      setPedidos(prev=>prev.map(p=>p.id!==edit.id ? p : {
         ...p, ...datos,
         pagos: p.pagos, // se conservan pagos históricos
       }));
@@ -3184,14 +3386,48 @@ function App(){
       setTab('flujo');
       return;
     }
+    const {data:n, error} = await sb.rpc('siguiente_folio', {p_nombre:'tienda'});
+    if(error){ avisar('No se pudo crear el pedido (sin conexión). Intenta de nuevo.'); return; }
+    const folio = 'T-' + n;
     const nuevo = {
-      id:uid(), folio:'T-'+folioTienda, fecha:hoyISO(), estado:'produccion', ...datos,
+      id:uid(), folio, origen:'mostrador', fecha:hoyISO(), estado:'produccion', ...datos,
       pagos: datos.anticipo>0 ? [{monto:datos.anticipo, metodo:datos.metodoAnticipo, fecha:hoyISO()}] : [],
     };
-    setPedidos([nuevo, ...pedidos]);
-    setFolioTienda(folioTienda+1);
-    avisar((datos.destino==='stock'?'Producción para stock':'Pedido')+' <b>#T-'+folioTienda+'</b> creado');
+    setPedidos(prev=>[nuevo, ...prev]);
+    avisar((datos.destino==='stock'?'Producción para stock':'Pedido')+' <b>#'+folio+'</b> creado');
     setTab('flujo');
+  };
+
+  const aprobarWeb = async w => {
+    const items = [];
+    w.items.forEach(i=>{
+      for(let k=0; k<Math.max(1, i.cantidad); k++){
+        items.push({id:uid(), prodId:i.prodId, temaId:'', imagen:i.imagen, tBastidor:false, tImagen:false,
+                    detalle:i.descripcion + (i.cantidad>1 ? ' ('+(k+1)+' de '+i.cantidad+')' : '')});
+      }
+    });
+    const entrega = manana(3);
+    const datos = {
+      folio:w.folio, origen:'web', fecha:hoyISO(), entrega, estado:'produccion', destino:'cliente',
+      items, total:w.total, descuento:0, anticipo:w.total, metodoAnticipo:'Transferencia',
+      pagos:[{monto:w.total, metodo:'Transferencia', fecha:hoyISO()}], envio:null
+    };
+    const {data, error} = await sb.rpc('aprobar_pedido_web', {p_codigo:w.codigo, p_datos:datos, p_entrega:entrega});
+    if(error) throw new Error(error.message);
+    SYNC.pedidos.registrarFila({id:data.id, codigo:data.codigo});
+    SYNC.pedidos.integrar({...data.datos, id:data.codigo});
+    setWebPedidos(prev=>prev.filter(x=>x.codigo!==w.codigo));
+    try{
+      const r = await fetch(NOTIFICAR_URL, {method:'POST', body:JSON.stringify({accion:'aprobado', folio:w.folio})});
+      const j = await r.json();
+      return !!(j && j.ok);
+    }catch(e){ console.error('correo', e); return false; }
+  };
+
+  const rechazarWeb = async (w, motivo) => {
+    const {error} = await sb.rpc('rechazar_pedido_web', {p_codigo:w.codigo, p_motivo:motivo||''});
+    if(error) throw new Error(error.message);
+    setWebPedidos(prev=>prev.filter(x=>x.codigo!==w.codigo));
   };
 
   const editarPedido = p => { setEditar(p); setTab('pedido'); };
@@ -3201,29 +3437,32 @@ function App(){
   const confirmarEntrega = (p, metodo) => {
     const pagado = (p.pagos||[]).reduce((s,x)=>s+x.monto,0);
     const resta = p.total - pagado;
-    setPedidos(pedidos.map(x=>x.id!==p.id?x:{
+    setPedidos(prev=>prev.map(x=>x.id!==p.id?x:{
       ...x, estado:'entregado', fechaEntregado:hoyISO(),
-      pagos: resta>0 ? [...x.pagos, {monto:resta, metodo, fecha:hoyISO()}] : x.pagos,
+      pagos: resta>0 ? [...(x.pagos||[]), {monto:resta, metodo, fecha:hoyISO()}] : x.pagos,
     }));
     setEntregando(null);
     avisar('Pedido <b>#'+p.folio+'</b> entregado'+(resta>0?' · cobrado '+dinero(resta):''));
   };
 
   const terminarStock = p => {
-    let nuevoStock = [...stock];
-    p.items.forEach(i=>{
-      if(!i.temaId) return;
-      const ex = nuevoStock.find(s=>s.prodId===i.prodId && s.temaId===i.temaId);
-      if(ex) nuevoStock = nuevoStock.map(s=>s.id===ex.id?{...s, cantidad:s.cantidad+1}:s);
-      else nuevoStock.push({id:uid(), prodId:i.prodId, temaId:i.temaId, cantidad:1});
+    setStock(prev=>{
+      let nuevoStock = [...prev];
+      p.items.forEach(i=>{
+        if(!i.temaId) return;
+        const ex = nuevoStock.find(s=>s.prodId===i.prodId && s.temaId===i.temaId);
+        if(ex) nuevoStock = nuevoStock.map(s=>s.id===ex.id?{...s, cantidad:s.cantidad+1}:s);
+        else nuevoStock.push({id:uid(), prodId:i.prodId, temaId:i.temaId, cantidad:1});
+      });
+      return nuevoStock;
     });
-    setStock(nuevoStock);
-    setPedidos(pedidos.map(x=>x.id!==p.id?x:{...x, estado:'entregado', fechaEntregado:hoyISO()}));
+    setPedidos(prev=>prev.map(x=>x.id!==p.id?x:{...x, estado:'entregado', fechaEntregado:hoyISO()}));
     avisar('<b>'+p.items.length+' piezas</b> sumadas al inventario');
   };
 
   /* ---------- Caja ---------- */
   const abrirCaja = fondo => {
+    if(cajas.some(c=>c.estado==='abierta')){ avisar('Ya hay una caja abierta'); return; }
     const nueva = {
       id:uid(), fecha:hoyISO(), estado:'abierta', fondo,
       abrioId:usuario.id, abrioNombre:usuario.nombre, abrioHora:ahoraISO(),
@@ -3242,22 +3481,24 @@ function App(){
     if(!auto) avisar('Caja cerrada · corte guardado');
   };
 
-  // Cierre automático a las 6:10 pm si nadie cerró (se revisa al entrar y cada minuto)
+  // Cierre automático a las 6:10 pm si nadie cerró (se revisa cada minuto)
   useEffect(()=>{
+    if(!listo) return;
     const revisar = () => {
-      setCajas(prev=>prev.map(c=> tocaCerrarAuto(c)
+      setCajas(prev=>prev.some(tocaCerrarAuto) ? prev.map(c=> tocaCerrarAuto(c)
         ? {...c, estado:'cerrada', cerroHora:ahoraISO(), auto:true, cerroNombre:null, cerroId:null}
-        : c));
+        : c) : prev);
     };
     revisar();
     const t = setInterval(revisar, 60000);
     return ()=>clearInterval(t);
-  }, []);
+  }, [listo]);
 
   /* ---------- Venta POS ---------- */
   const venderStock = ({carrito, subtotal, total, descuento, metodo, recibido, cambio}) => {
     const caja = cajas.find(c=>c.estado==='abierta');
     if(!caja){ avisar('La caja está cerrada — ábrela para poder vender'); return null; }
+    if(folioTicket===null){ avisar('Preparando el folio del ticket… intenta en un segundo'); return null; }
 
     // Marca las piezas que salen sin existencia y descuenta lo que sí hay
     const items = carrito.map(c=>{
@@ -3283,23 +3524,28 @@ function App(){
       recibido: recibido||total, cambio: cambio||0
     };
     setVentas(prev=>[venta, ...prev]);
-    setFolioTicket(f=>f+1);
+    setFolioTicket(null);
     avisar('Venta <b>#'+venta.folio+'</b> · '+dinero(total)+' · '+metodo);
     const ok = imprimirTicket(venta, productos, temas, usuario.nombre);
     if(!ok) avisar('Venta guardada — el navegador bloqueó la ventana del ticket');
     return venta;
   };
 
-  if(cargando) return (
-    <div className="login-wrap">
-      <div className="login-card">
-        <img className="marca-img marca-img-login" src={LOGO_URI} alt="FANATICARTE"/>
-        <div className="login-sub">Conectando con Google Sheets…</div>
-      </div>
-    </div>
+  /* ---------- Pantallas de entrada ---------- */
+  if(sesion === undefined) return <PantallaMarca texto="Conectando…"/>;
+  if(!sesion) return <Login/>;
+  if(estadoCarga==='error') return (
+    <PantallaMarca texto="No se pudieron cargar los datos. Revisa tu conexión a internet.">
+      <button className="btn btn-p btn-block" style={{marginTop:14}} onClick={()=>location.reload()}>Reintentar</button>
+      <button className="btn btn-s btn-block" style={{marginTop:8}} onClick={salir}>Salir</button>
+    </PantallaMarca>
   );
-
-  if(!usuario) return <Login usuarios={usuarios} onEntrar={u=>{setUsuario(u); setTab(u.modulos[0]||'hoy');}}/>;
+  if(!listo) return <PantallaMarca texto="Cargando datos…"/>;
+  if(!usuario || !usuario.activo) return (
+    <PantallaMarca texto="Tu usuario no tiene acceso al sistema. Pídele al administrador que te active.">
+      <button className="btn btn-s btn-block" style={{marginTop:14}} onClick={salir}>Salir</button>
+    </PantallaMarca>
+  );
 
   const misModulos = MODULOS.filter(m=>usuario.modulos.includes(m.id));
   const pendientes = pedidos.filter(p=>p.estado!=='entregado' && diasPara(p.entrega)<=0).length;
@@ -3309,9 +3555,9 @@ function App(){
       <div className="topbar">
         <img className="marca-img marca-img-top" src={LOGO_URI} alt="FANATICARTE"/>
         <div className="topbar-right">
-          {API.MODE==='demo' && <span className="demo-flag demo-flag-warn">Sin conexión</span>}
+          {guardando>0 && <span className="demo-flag">Guardando…</span>}
           <div className="chip-user"><div className="avatar">{usuario.nombre.slice(0,2).toUpperCase()}</div><span>{usuario.nombre}</span></div>
-          <button className="btn-salir" onClick={()=>setUsuario(null)}>Salir</button>
+          <button className="btn-salir" onClick={salir}>Salir</button>
         </div>
       </div>
       <div className="nav">
@@ -3326,7 +3572,7 @@ function App(){
       <div className="main">
         {tab==='hoy'        && <TabHoy pedidos={pedidos} ventas={ventas} gastos={gastos} clientes={clientes} productos={productos} ir={setTab}/>}
         {tab==='pedido'     && <TabPedido key={editar?editar.id:'nuevo'} productos={productos} materiales={materiales} temas={temas} crearTema={crearTema} clientes={clientes} setClientes={setClientes} crearPedido={crearPedido} editar={editar} setEditar={setEditar} avisar={avisar}/>}
-        {tab==='aprobar'    && <TabAprobar webPedidos={webPedidos} cargandoWeb={cargandoWeb} recargarWeb={recargarWeb} productos={productos} temas={temas} clientes={clientes} setClientes={setClientes} pedidos={pedidos} setPedidos={setPedidos} avisar={avisar}/>}
+        {tab==='aprobar'    && <TabAprobar webPedidos={webPedidos} cargandoWeb={cargandoWeb} recargarWeb={recargarWeb} aprobarWeb={aprobarWeb} rechazarWeb={rechazarWeb} avisar={avisar}/>}
         {tab==='flujo'      && <TabFlujo pedidos={pedidos} setPedidos={setPedidos} clientes={clientes} productos={productos} temas={temas} cobrarYEntregar={cobrarYEntregar} terminarStock={terminarStock} editarPedido={editarPedido} avisar={avisar}/>}
         {tab==='ventas'     && <TabVentas pedidos={pedidos} setPedidos={setPedidos} clientes={clientes} productos={productos} temas={temas} ventas={ventas} avisar={avisar}/>}
         {tab==='pos'        && <TabPos stock={stock} productos={productos} temas={temas} ventas={ventas} metodos={metodos} cajas={cajas} usuario={usuario} usuarios={usuarios} abrirCaja={abrirCaja} cerrarCaja={cerrarCaja} venderStock={venderStock} avisar={avisar}/>}
@@ -3335,7 +3581,7 @@ function App(){
         {tab==='clientes'   && <TabClientes clientes={clientes} setClientes={setClientes} pedidos={pedidos} ventas={ventas} productos={productos} temas={temas}/>}
         {tab==='gastos'     && <TabGastos gastos={gastos} setGastos={setGastos} catGastos={catGastos} setCatGastos={setCatGastos} avisar={avisar}/>}
         {tab==='reportes'   && <TabReportes pedidos={pedidos} ventas={ventas} gastos={gastos} productos={productos} materiales={materiales} temas={temas} clientes={clientes}/>}
-        {tab==='usuarios'   && <TabUsuarios usuarios={usuarios} setUsuarios={setUsuarios}/>}
+        {tab==='usuarios'   && <TabUsuarios usuarios={usuarios} setUsuarios={setUsuarios} usuario={usuario}/>}
       </div>
 
       {entregando && (()=>{
