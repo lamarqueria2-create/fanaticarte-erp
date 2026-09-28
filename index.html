@@ -163,6 +163,20 @@
   .item-t{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .item-m{font-size:12px;color:var(--gris-5)}
   .checks{display:flex;gap:6px}
+  .flujo-item{background:var(--fondo);border:1px solid var(--gris-2);border-radius:8px;padding:10px;margin-bottom:8px}
+  .flujo-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .flujo-item-cols{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:start}
+  .flujo-thumb-col{display:flex;flex-direction:column;gap:6px;align-items:flex-start;min-width:0}
+  .flujo-thumb{width:96px;height:96px;border-radius:8px;object-fit:cover;background:var(--gris-2);border:1px solid var(--gris-2);cursor:pointer;flex-shrink:0}
+  .flujo-thumb-ph{width:96px;height:96px;border-radius:8px;background:var(--gris-2);color:var(--gris-5);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;text-align:center;flex-shrink:0}
+  .flujo-thumb-info{min-width:0}
+  .flujo-thumb-t{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .flujo-thumb-m{font-size:12px;color:var(--gris-5)}
+  .flujo-print-col{background:var(--gris-1);border:1px solid var(--gris-2);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:150px}
+  .flujo-print-img{width:100%;max-height:360px;object-fit:contain;cursor:pointer;display:block}
+  .flujo-print-ph{color:var(--gris-5);font-size:12px;padding:20px;text-align:center}
+  .flujo-hint{font-size:10.5px;color:var(--gris-5);margin-top:4px}
+  @media (max-width:520px){ .flujo-item-cols{grid-template-columns:1fr} }
   .chk{font-size:11px;font-weight:700;padding:5px 9px;border-radius:6px;border:1.5px solid var(--gris-3);color:var(--gris-5);background:var(--blanco);text-transform:uppercase;letter-spacing:.03em}
   .chk.on{background:var(--negro);border-color:var(--negro);color:var(--amarillo)}
   .pc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:11px;gap:8px;flex-wrap:wrap}
@@ -867,6 +881,47 @@ function Miniatura({src, clase, claseVacio, textoVacio}){
   return <img className={clase} src={src} alt="" loading="lazy" onError={()=>setFalla(true)}/>;
 }
 
+// Descarga directa de una imagen (botón/acción propia, no el menú del navegador)
+async function descargarImagenDirecta(src, nombre){
+  if(!src) return;
+  try{
+    const resp = await fetch(src, {mode:'cors'});
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (nombre || 'imagen') + (src.match(/\.(jpe?g|png|webp|gif)(\?|$)/i)?.[1] ? ('.'+src.match(/\.(jpe?g|png|webp|gif)(\?|$)/i)[1]) : '.jpg');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  }catch(err){
+    // Si falla el fetch (CORS u otro), abrimos la imagen en pestaña nueva como respaldo
+    window.open(src, '_blank');
+  }
+}
+
+// Imagen de Flujo: clic = abrir en pestaña nueva · clic derecho = descargar directo
+function ImagenFlujo({src, nombre, clase, clasePh, textoVacio, esGrande}){
+  const [falla, setFalla] = useState(false);
+  useEffect(()=>{ setFalla(false); }, [src]);
+  if(!src || falla){
+    return <div className={clasePh}>{falla ? 'No carga' : (textoVacio||'Sin imagen')}</div>;
+  }
+  return (
+    <img
+      className={clase}
+      src={src}
+      alt=""
+      loading="lazy"
+      onError={()=>setFalla(true)}
+      title={esGrande ? 'Clic: abrir en pestaña nueva · Clic derecho: descargar' : undefined}
+      onClick={()=>window.open(src, '_blank')}
+      onContextMenu={e=>{ e.preventDefault(); descargarImagenDirecta(src, nombre); }}
+    />
+  );
+}
+
 function SelectTema({value, onChange, temas, crearTema}){
   const [nuevo, setNuevo] = useState(false);
   const [n, setN] = useState('');
@@ -1237,17 +1292,32 @@ function TabFlujo({pedidos, setPedidos, clientes, productos, temas, cobrarYEntre
                     <div className="pc-items">
                       {p.items.map(i=>{
                         const prod = prodDe(i.prodId, productos);
+                        const nombreArch = 'pedido_'+p.folio+'_'+(i.detalle||nomTema(i.temaId)||'item').toString().replace(/[^a-z0-9]+/gi,'_');
                         return (
-                          <div key={i.id} className="item-row">
-                            <Miniatura src={i.imagen} clase="item-thumb" claseVacio="item-thumb-ph" textoVacio="Sin img"/>
-                            <div className="item-info">
-                              <div className="item-t">{i.detalle || nomTema(i.temaId)}</div>
-                              <div className="item-m">{prodEtiqueta(prod)}</div>
+                          <div key={i.id} className="flujo-item">
+                            <div className="flujo-item-head">
+                              <div className="item-info">
+                                <div className="item-t">{i.detalle || nomTema(i.temaId)}</div>
+                                <div className="item-m">{prodEtiqueta(prod)}</div>
+                              </div>
+                              <div className="checks">
+                                <button className={'chk'+(i.tBastidor?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tBastidor')}>Bastidor</button>
+                                <button className={'chk'+(i.tImagen?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tImagen')}>Imagen</button>
+                              </div>
                             </div>
-                            <div className="checks">
-                              <button className={'chk'+(i.tBastidor?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tBastidor')}>Bastidor</button>
-                              <button className={'chk'+(i.tImagen?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tImagen')}>Imagen</button>
+                            <div className="flujo-item-cols">
+                              <div className="flujo-thumb-col">
+                                <ImagenFlujo src={i.imagen} nombre={nombreArch} clase="flujo-thumb" clasePh="flujo-thumb-ph" textoVacio="Sin img"/>
+                                <div className="flujo-thumb-info">
+                                  <div className="flujo-thumb-t">{i.detalle || nomTema(i.temaId)}</div>
+                                  <div className="flujo-thumb-m">{prodEtiqueta(prod)}</div>
+                                </div>
+                              </div>
+                              <div className="flujo-print-col">
+                                <ImagenFlujo src={i.imagen} nombre={nombreArch} clase="flujo-print-img" clasePh="flujo-print-ph" textoVacio="Sin imagen para imprimir" esGrande/>
+                              </div>
                             </div>
+                            <div className="flujo-hint">Clic en la imagen: abrir en pestaña nueva · Clic derecho: descargar</div>
                           </div>
                         );
                       })}
