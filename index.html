@@ -162,21 +162,38 @@
   .item-info{flex:1;min-width:0}
   .item-t{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .item-m{font-size:12px;color:var(--gris-5)}
-  .checks{display:flex;gap:6px}
-  .flujo-item{background:var(--fondo);border:1px solid var(--gris-2);border-radius:8px;padding:10px;margin-bottom:8px}
-  .flujo-item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
-  .flujo-item-cols{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:start}
-  .flujo-thumb-col{display:flex;flex-direction:column;gap:6px;align-items:flex-start;min-width:0}
-  .flujo-thumb{width:96px;height:96px;border-radius:8px;object-fit:cover;background:var(--gris-2);border:1px solid var(--gris-2);cursor:pointer;flex-shrink:0}
-  .flujo-thumb-ph{width:96px;height:96px;border-radius:8px;background:var(--gris-2);color:var(--gris-5);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;text-align:center;flex-shrink:0}
-  .flujo-thumb-info{min-width:0}
-  .flujo-thumb-t{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .flujo-thumb-m{font-size:12px;color:var(--gris-5)}
-  .flujo-print-col{background:var(--gris-1);border:1px solid var(--gris-2);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:150px}
-  .flujo-print-img{width:100%;max-height:360px;object-fit:contain;cursor:pointer;display:block}
-  .flujo-print-ph{color:var(--gris-5);font-size:12px;padding:20px;text-align:center}
-  .flujo-hint{font-size:10.5px;color:var(--gris-5);margin-top:4px}
-  @media (max-width:520px){ .flujo-item-cols{grid-template-columns:1fr} }
+  .checks{display:flex;gap:6px;flex-wrap:wrap}
+  .flujo-row{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:14px;margin-bottom:14px;align-items:stretch}
+  .flujo-info-card{background:var(--blanco);border:1px solid var(--gris-2);border-left:4px solid var(--gris-3);border-radius:var(--radio);padding:13px 14px;box-shadow:var(--sombra);display:flex;flex-direction:column}
+  .flujo-info-card.urgente{border-left-color:var(--rojo)}
+  .flujo-info-card.hoy{border-left-color:var(--amarillo)}
+  .flujo-info-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px}
+  .flujo-tareas{display:flex;flex-direction:column;gap:8px;flex:1}
+  .flujo-tarea-item{display:flex;align-items:center;gap:10px;background:var(--fondo);border:1px solid var(--gris-2);border-radius:8px;padding:8px 10px}
+  .flujo-num{width:20px;height:20px;border-radius:50%;background:var(--negro);color:var(--amarillo);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .flujo-tarea-checks{flex:1;min-width:0}
+  .flujo-tarea-t{font-size:12px;color:var(--gris-5);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .flujo-dias-esquina{align-self:flex-end;margin-top:10px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;background:var(--gris-2);color:var(--gris-7)}
+  .flujo-info-card.urgente .flujo-dias-esquina{background:var(--rojo-suave);color:var(--rojo)}
+  .flujo-info-card.hoy .flujo-dias-esquina{background:#FFF6DD;color:#8A6D00}
+  .flujo-img-card{background:var(--blanco);border:1px solid var(--gris-2);border-radius:var(--radio);padding:14px;box-shadow:var(--sombra);display:flex;flex-direction:column;gap:12px}
+  .flujo-img-block{background:var(--gris-1);border:1px solid var(--gris-2);border-radius:8px;padding:10px;position:relative}
+  .flujo-num-badge{position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:50%;background:var(--negro);color:var(--amarillo);font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;z-index:2}
+  .flujo-print-img{width:100%;max-height:380px;object-fit:contain;cursor:pointer;display:block;border-radius:6px}
+  .flujo-print-ph{color:var(--gris-5);font-size:12px;padding:30px;text-align:center}
+  .flujo-hint{font-size:10.5px;color:var(--gris-5);margin-top:6px;text-align:center}
+  .chk-block{width:100%;margin-top:8px;padding:8px;text-align:center}
+  @media (max-width:760px){ .flujo-row{grid-template-columns:1fr} }
+  /* -------- Kanban (Pedidos) -------- */
+  .kanban-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:start}
+  .kanban-col-h{font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--gris-7);padding:2px 2px 10px;display:flex;align-items:center;gap:7px}
+  .kanban-col-h .fc-n{background:var(--gris-2);border-radius:8px;font-size:11px;padding:1px 8px;text-transform:none;letter-spacing:normal}
+  .kanban-card{background:var(--blanco);border:1px solid var(--gris-2);border-radius:var(--radio);padding:12px 13px;margin-bottom:10px;box-shadow:var(--sombra)}
+  .kanban-card.urgente{border-left:4px solid var(--rojo)}
+  .kanban-card.hoy{border-left:4px solid var(--amarillo)}
+  .kanban-acciones{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .kanban-btn-entregado{background:var(--verde);color:var(--blanco);font-weight:700;padding:8px 14px;font-size:13px}
+  @media (max-width:860px){ .kanban-cols{grid-template-columns:1fr} }
   .chk{font-size:11px;font-weight:700;padding:5px 9px;border-radius:6px;border:1.5px solid var(--gris-3);color:var(--gris-5);background:var(--blanco);text-transform:uppercase;letter-spacing:.03em}
   .chk.on{background:var(--negro);border-color:var(--negro);color:var(--amarillo)}
   .pc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:11px;gap:8px;flex-wrap:wrap}
@@ -637,6 +654,7 @@ const MODULOS = [
   {id:'pedido',    nombre:'Nuevo Pedido'},
   {id:'aprobar',   nombre:'Por aprobar'},
   {id:'flujo',     nombre:'Flujo'},
+  {id:'pedidos',   nombre:'Pedidos'},
   {id:'pos',       nombre:'POS'},
   {id:'ventas',    nombre:'Ventas'},
   {id:'inventario',nombre:'Inventario'},
@@ -649,7 +667,7 @@ const MODULOS = [
 
 const USUARIOS_INI = [
   {id:'u1', nombre:'Charly', rol:'Administrador', pin:'1234', modulos:MODULOS.map(m=>m.id)},
-  {id:'u2', nombre:'Raúl',   rol:'Producción',    pin:'2222', modulos:['hoy','flujo','ventas','inventario','bases']},
+  {id:'u2', nombre:'Raúl',   rol:'Producción',    pin:'2222', modulos:['hoy','flujo','pedidos','ventas','inventario','bases']},
 ];
 
 const MATERIALES_INI = [
@@ -729,27 +747,27 @@ const manana = n => desplazarDias(n);
 const PEDIDOS_INI = [
   {id:'pd1', folio:101, clienteId:'c1', fecha:ayer(), entrega:hoyISO(), estado:'produccion', destino:'cliente',
    items:[
-     {id:'i1', prodId:'p1', temaId:'t1', imagen:null, tBastidor:true,  tImagen:false},
-     {id:'i2', prodId:'p2', temaId:'t1', imagen:null, tBastidor:false, tImagen:false},
+     {id:'i1', prodId:'p1', temaId:'t1', imagen:null, tBastidor:true,  tImagen:false, tArmado:false},
+     {id:'i2', prodId:'p2', temaId:'t1', imagen:null, tBastidor:false, tImagen:false, tArmado:false},
    ],
    total:870, descuento:0, anticipo:400, metodoAnticipo:'Efectivo', pagos:[{monto:400, metodo:'Efectivo', fecha:ayer()}],
    envio:null},
   {id:'pd2', folio:102, clienteId:'c2', fecha:ayer(), entrega:manana(2), estado:'produccion', destino:'cliente',
    items:[
-     {id:'i3', prodId:'p3', temaId:'t7', imagen:null, tBastidor:false, tImagen:false},
+     {id:'i3', prodId:'p3', temaId:'t7', imagen:null, tBastidor:false, tImagen:false, tArmado:false},
    ],
    total:890, descuento:10, anticipo:500, metodoAnticipo:'Transferencia', pagos:[{monto:500, metodo:'Transferencia', fecha:ayer()}],
    envio:{ciudad:'Mazatlán', direccion:'Av. del Mar 1500, Col. Tellería', paqueteria:'Estafeta', guia:null}},
   {id:'pd3', folio:103, clienteId:null, clienteNombre:'Stock FANATICARTE', fecha:hoyISO(), entrega:manana(4), estado:'produccion', destino:'stock',
    items:[
-     {id:'i4', prodId:'p1', temaId:'t6', imagen:null, tBastidor:false, tImagen:false},
-     {id:'i5', prodId:'p1', temaId:'t6', imagen:null, tBastidor:false, tImagen:false},
-     {id:'i6', prodId:'p6', temaId:'t2', imagen:null, tBastidor:false, tImagen:false},
+     {id:'i4', prodId:'p1', temaId:'t6', imagen:null, tBastidor:false, tImagen:false, tArmado:false},
+     {id:'i5', prodId:'p1', temaId:'t6', imagen:null, tBastidor:false, tImagen:false, tArmado:false},
+     {id:'i6', prodId:'p6', temaId:'t2', imagen:null, tBastidor:false, tImagen:false, tArmado:false},
    ],
    total:0, descuento:0, anticipo:0, pagos:[], envio:null},
   {id:'pd4', folio:100, clienteId:'c3', fecha:manana(-6), entrega:manana(-3), estado:'entregado', fechaEntregado:manana(-3), destino:'cliente',
    items:[
-     {id:'i7', prodId:'p4', temaId:'t8', imagen:null, tBastidor:true, tImagen:true},
+     {id:'i7', prodId:'p4', temaId:'t8', imagen:null, tBastidor:true, tImagen:true, tArmado:true},
    ],
    total:150, descuento:0, anticipo:150, metodoAnticipo:'Efectivo', pagos:[{monto:150, metodo:'Efectivo', fecha:manana(-3)}],
    envio:null},
@@ -1063,7 +1081,7 @@ function TabHoy({pedidos, ventas, gastos, clientes, productos, ir}){
    TAB NUEVO PEDIDO
    ============================================================ */
 function TabPedido({productos, materiales, temas, crearTema, clientes, setClientes, crearPedido, editar, setEditar, avisar}){
-  const vacio = () => ({id:uid(), prodId:'', temaId:'', imagen:null, tBastidor:false, tImagen:false});
+  const vacio = () => ({id:uid(), prodId:'', temaId:'', imagen:null, tBastidor:false, tImagen:false, tArmado:false});
   const [items, setItems] = useState(editar ? editar.items.map(i=>({...i})) : [vacio()]);
   const [clienteId, setClienteId] = useState(editar?.clienteId || '');
   const [destino, setDestino] = useState(editar?.destino || 'cliente');
@@ -1233,21 +1251,20 @@ function TabPedido({productos, materiales, temas, crearTema, clientes, setClient
 /* ============================================================
    TAB FLUJO
    ============================================================ */
-function TabFlujo({pedidos, setPedidos, clientes, productos, temas, cobrarYEntregar, terminarStock, editarPedido, avisar}){
+function TabFlujo({pedidos, setPedidos, clientes, productos, temas, editarPedido, avisar}){
   const nomTema = id => (temas.find(t=>t.id===id)||{}).nombre || 'Sin tema';
-  const [guiaDe, setGuiaDe] = useState(null);
-  const activos = pedidos.filter(p=>p.estado!=='entregado');
-  const cols = [
-    {k:'urg', t:'Hoy y atrasados', filtro:p=>diasPara(p.entrega)<=0, urgente:true},
-    {k:'prox',t:'Próximos (1–3 días)', filtro:p=>diasPara(p.entrega)>=1 && diasPara(p.entrega)<=3},
-    {k:'desp',t:'Después', filtro:p=>diasPara(p.entrega)>3},
-  ];
-
   const nomCliente = p => p.destino==='stock' ? 'Producción para stock' : (clientes.find(c=>c.id===p.clienteId)?.nombre || p.clienteNombre || 'Cliente');
+
+  const activos = pedidos.filter(p=>p.estado==='produccion').sort((a,b)=>diasPara(a.entrega)-diasPara(b.entrega));
+
   const toggleTarea = (pid, iid, campo) => {
-    setPedidos(pedidos.map(p=>p.id!==pid?p:{...p, items:p.items.map(i=>i.id!==iid?i:{...i, [campo]:!i[campo]})}));
+    setPedidos(prev=>prev.map(p=>{
+      if(p.id!==pid) return p;
+      const items = p.items.map(i=>i.id!==iid?i:{...i, [campo]:!i[campo]});
+      const todoListo = items.every(i=>i.tBastidor && i.tImagen && i.tArmado);
+      return {...p, items, estado: todoListo ? 'listo' : p.estado};
+    }));
   };
-  const listo = p => p.items.every(i=>i.tBastidor && i.tImagen);
 
   const subirGuia = (p, data) => {
     setPedidos(prev=>prev.map(x=>x.id!==p.id?x:{...x, envio:{...x.envio, guia:data, guiaEstado:'subiendo'}}));
@@ -1266,80 +1283,147 @@ function TabFlujo({pedidos, setPedidos, clientes, productos, temas, cobrarYEntre
   return (
     <div>
       <div className="titulo">Flujo de trabajo</div>
-      <div className="subtitulo">Dos tareas por producto: bastidor e imagen. Al completar todo, el pedido se puede entregar.</div>
-      <div className="flujo-cols">
-        {cols.map(col=>{
-          const lista = activos.filter(col.filtro).sort((a,b)=>a.entrega<b.entrega?-1:1);
+      <div className="subtitulo">Pedidos en producción. Tres tareas por producto: bastidor/medida, imagen y armado. Al completar todo, el pedido pasa solo a "Pedidos → Listos".</div>
+      {activos.length===0 && <Vacio t="Sin pedidos en producción" x="No hay nada pendiente en este momento"/>}
+      {activos.map(p=>{
+        const d = diasPara(p.entrega);
+        const cls = d<0?'urgente':(d===0?'hoy':'');
+        const multi = p.items.length>1;
+        return (
+          <div key={p.id} className="flujo-row">
+            <div className={'flujo-info-card '+cls}>
+              <div className="flujo-info-head">
+                <div>
+                  <span className="pc-folio">#{p.folio}</span>
+                  {p.destino==='stock' && <span className="tag tag-negro" style={{marginLeft:7}}>Stock</span>}
+                  {p.envio && <span className="tag tag-azul" style={{marginLeft:7}}>Envío</span>}
+                  <div className="pc-cliente">{nomCliente(p)}</div>
+                </div>
+                <button className="btn btn-s btn-mini" onClick={()=>editarPedido(p)}>Editar</button>
+              </div>
+              <div className="flujo-tareas">
+                {p.items.map((i,ix)=>{
+                  const prod = prodDe(i.prodId, productos);
+                  return (
+                    <div key={i.id} className="flujo-tarea-item">
+                      {multi && <div className="flujo-num">{ix+1}</div>}
+                      <Miniatura src={i.imagen} clase="item-thumb" claseVacio="item-thumb-ph" textoVacio="Sin img"/>
+                      <div className="flujo-tarea-checks">
+                        <div className="flujo-tarea-t">{i.detalle || nomTema(i.temaId)}</div>
+                        <div className="checks">
+                          <button className={'chk'+(i.tBastidor?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tBastidor')}>{prodEtiqueta(prod)}</button>
+                          <button className={'chk'+(i.tImagen?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tImagen')}>Imagen</button>
+                          <button className={'chk'+(i.tArmado?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tArmado')}>Armado</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {p.envio && <div className="envio-box" style={{marginTop:10}}>
+                <b>Envío · {p.envio.paqueteria || 'Paquetería por definir'}</b>
+                {p.envio.ciudad}{p.envio.direccion?' — '+p.envio.direccion:''}
+                {p.envio.guia
+                  ? <Miniatura src={p.envio.guia} clase="guia-img" claseVacio="guia-img img-rota" textoVacio=""/>
+                  : <label className="btn btn-s btn-mini" style={{marginTop:7, display:'inline-flex'}}>Subir guía
+                      <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>subirGuia(p,d)); }}/>
+                    </label>}
+              </div>}
+              <div className="flujo-dias-esquina">{d<0?Math.abs(d)+'d atrasado':(d===0?'Entrega hoy':'Entrega en '+d+'d')}</div>
+            </div>
+            <div className="flujo-img-card">
+              {p.items.map((i,ix)=>{
+                const nombreArch = 'pedido_'+p.folio+(multi?'_'+(ix+1):'')+'_'+(i.detalle||nomTema(i.temaId)||'item').toString().replace(/[^a-z0-9]+/gi,'_');
+                return (
+                  <div key={i.id} className="flujo-img-block">
+                    {multi && <div className="flujo-num-badge">{ix+1}</div>}
+                    <ImagenFlujo src={i.imagen} nombre={nombreArch} clase="flujo-print-img" clasePh="flujo-print-ph" textoVacio="Sin imagen para imprimir" esGrande/>
+                    <button className={'chk chk-block'+(i.tImagen?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tImagen')}>{i.tImagen?'✓ Imagen lista':'Marcar imagen lista'}</button>
+                    <div className="flujo-hint">Clic: abrir en pestaña nueva · Clic derecho: descargar</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ============================================================
+   TAB PEDIDOS (Kanban: producción · listos · entregados)
+   ============================================================ */
+function TabPedidosKanban({pedidos, setPedidos, clientes, productos, temas, cobrarYEntregar, terminarStock, editarPedido, avisar}){
+  const [ver, setVer] = useState(null);
+  const nomCliente = p => p.destino==='stock' ? 'Producción para stock' : (clientes.find(c=>c.id===p.clienteId)?.nombre || p.clienteNombre || 'Cliente');
+  const pagadoDe = p => (p.pagos||[]).reduce((s,x)=>s+x.monto,0);
+  const saldoDe = p => p.total - pagadoDe(p);
+
+  const moverEstado = (p, estado) => setPedidos(prev=>prev.map(x=>x.id!==p.id?x:{...x, estado}));
+  const marcarEntregado = p => { if(p.destino==='stock') terminarStock(p); else cobrarYEntregar(p); };
+
+  const registrarAbono = (pedido, monto, metodo) => {
+    setPedidos(prev=>prev.map(x=>x.id!==pedido.id?x:{...x, pagos:[...(x.pagos||[]), {monto, metodo, fecha:hoyISO()}]}));
+    avisar('Abono de <b>'+dinero(monto)+'</b> registrado en #'+pedido.folio);
+    setVer(null);
+  };
+
+  const COLS = [
+    {k:'produccion', t:'Pedidos en producción'},
+    {k:'listo',      t:'Pedidos listos'},
+    {k:'entregado',  t:'Pedidos entregados'},
+  ];
+
+  return (
+    <div>
+      <div className="titulo">Pedidos</div>
+      <div className="subtitulo">Tablero de producción — de "en producción" a "listos" y "entregados".</div>
+      <div className="kanban-cols">
+        {COLS.map(col=>{
+          let lista = pedidos.filter(p=>p.estado===col.k);
+          lista = col.k==='entregado'
+            ? lista.sort((a,b)=>(b.fechaEntregado||'').localeCompare(a.fechaEntregado||''))
+            : lista.sort((a,b)=>diasPara(a.entrega)-diasPara(b.entrega));
           return (
             <div key={col.k}>
-              <div className={'fcol-h'+(col.urgente?' urgente':'')}>{col.t}<span className="fc-n">{lista.length}</span></div>
-              {lista.length===0 && <Vacio t="Sin pedidos" x="Nada pendiente en este bloque"/>}
+              <div className="kanban-col-h">{col.t}<span className="fc-n">{lista.length}</span></div>
+              {lista.length===0 && <Vacio t="Sin pedidos" x="Nada aquí por ahora"/>}
               {lista.map(p=>{
                 const d = diasPara(p.entrega);
-                const cls = d<0?'urgente':(d===0?'hoy':(listo(p)?'ok':''));
+                const cls = col.k!=='entregado' ? (d<0?'urgente':(d===0?'hoy':'')) : '';
                 return (
-                  <div key={p.id} className={'pedido-card '+cls}>
-                    <div className="pc-top">
-                      <div>
-                        <span className="pc-folio">#{p.folio}</span>
-                        {p.destino==='stock' && <span className="tag tag-negro" style={{marginLeft:7}}>Stock</span>}
-                        {p.envio && <span className="tag tag-azul" style={{marginLeft:7}}>Envío</span>}
-                        <div className="pc-cliente">{nomCliente(p)}</div>
-                        <div className="pc-fecha">Entrega {fFecha(p.entrega)} {d<0?'· '+Math.abs(d)+'d atrasado':(d===0?'· hoy':'· en '+d+'d')}</div>
+                  <div key={p.id} className={'kanban-card '+cls}>
+                    <div>
+                      <span className="pc-folio">#{p.folio}</span>
+                      {p.destino==='stock' && <span className="tag tag-negro" style={{marginLeft:7}}>Stock</span>}
+                      {p.envio && <span className="tag tag-azul" style={{marginLeft:7}}>Envío</span>}
+                      <div className="pc-cliente">{nomCliente(p)}</div>
+                      <div className="pc-fecha">
+                        {col.k==='entregado'
+                          ? 'Entregado '+fFecha(p.fechaEntregado)
+                          : 'Entrega '+fFecha(p.entrega)+' '+(d<0?'· '+Math.abs(d)+'d atrasado':(d===0?'· hoy':'· en '+d+'d'))}
                       </div>
-                      <button className="btn btn-s btn-mini" onClick={()=>editarPedido(p)}>Editar</button>
+                      {p.destino==='cliente' && <div style={{fontSize:12.5, color:'var(--gris-7)', marginTop:4}}>
+                        Total {dinero(p.total)}{saldoDe(p)>0 ? ' · saldo '+dinero(saldoDe(p)) : ' · saldado'}
+                      </div>}
                     </div>
-                    <div className="pc-items">
-                      {p.items.map(i=>{
-                        const prod = prodDe(i.prodId, productos);
-                        const nombreArch = 'pedido_'+p.folio+'_'+(i.detalle||nomTema(i.temaId)||'item').toString().replace(/[^a-z0-9]+/gi,'_');
-                        return (
-                          <div key={i.id} className="flujo-item">
-                            <div className="flujo-item-head">
-                              <div className="item-info">
-                                <div className="item-t">{i.detalle || nomTema(i.temaId)}</div>
-                                <div className="item-m">{prodEtiqueta(prod)}</div>
-                              </div>
-                              <div className="checks">
-                                <button className={'chk'+(i.tBastidor?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tBastidor')}>Bastidor</button>
-                                <button className={'chk'+(i.tImagen?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tImagen')}>Imagen</button>
-                              </div>
-                            </div>
-                            <div className="flujo-item-cols">
-                              <div className="flujo-thumb-col">
-                                <ImagenFlujo src={i.imagen} nombre={nombreArch} clase="flujo-thumb" clasePh="flujo-thumb-ph" textoVacio="Sin img"/>
-                                <div className="flujo-thumb-info">
-                                  <div className="flujo-thumb-t">{i.detalle || nomTema(i.temaId)}</div>
-                                  <div className="flujo-thumb-m">{prodEtiqueta(prod)}</div>
-                                </div>
-                              </div>
-                              <div className="flujo-print-col">
-                                <ImagenFlujo src={i.imagen} nombre={nombreArch} clase="flujo-print-img" clasePh="flujo-print-ph" textoVacio="Sin imagen para imprimir" esGrande/>
-                              </div>
-                            </div>
-                            <div className="flujo-hint">Clic en la imagen: abrir en pestaña nueva · Clic derecho: descargar</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {p.envio && <div className="envio-box">
-                      <b>Envío · {p.envio.paqueteria || 'Paquetería por definir'}</b>
-                      {p.envio.ciudad}{p.envio.direccion?' — '+p.envio.direccion:''}
-                      {p.envio.guia
-                        ? <Miniatura src={p.envio.guia} clase="guia-img" claseVacio="guia-img img-rota" textoVacio=""/>
-                        : <label className="btn btn-s btn-mini" style={{marginTop:7, display:'inline-flex'}}>Subir guía
-                            <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{ const f=e.target.files[0]; if(f) leerImagen(f, d=>subirGuia(p,d)); }}/>
-                          </label>}
-                    </div>}
-                    <div className="pc-foot">
-                      {p.destino==='cliente' && <span style={{fontSize:12.5, color:'var(--gris-7)'}}>
-                        Total {dinero(p.total)} · pagado {dinero((p.pagos||[]).reduce((s,x)=>s+x.monto,0))}
-                      </span>}
-                      {listo(p)
-                        ? (p.destino==='stock'
-                            ? <button className="btn btn-am btn-mini" onClick={()=>terminarStock(p)}>Sumar al inventario</button>
-                            : <button className="btn btn-p btn-mini" onClick={()=>cobrarYEntregar(p)}>Entregar</button>)
-                        : <span className="tag tag-gris">{p.items.filter(i=>i.tBastidor&&i.tImagen).length}/{p.items.length} listos</span>}
+                    <div className="kanban-acciones">
+                      {col.k==='produccion' && <>
+                        <button className="btn btn-s btn-mini" onClick={()=>setVer(p)}>Ver</button>
+                        <button className="btn btn-s btn-mini" onClick={()=>editarPedido(p)}>Editar</button>
+                        <button className="btn btn-p btn-mini" onClick={()=>moverEstado(p,'listo')}>Listo</button>
+                      </>}
+                      {col.k==='listo' && <>
+                        <button className="btn btn-s btn-mini" onClick={()=>moverEstado(p,'produccion')}>Producción</button>
+                        <button className="btn btn-s btn-mini" onClick={()=>setVer(p)}>Ver</button>
+                        <button className="btn btn-s btn-mini" onClick={()=>editarPedido(p)}>Editar</button>
+                        <button className="btn kanban-btn-entregado" onClick={()=>marcarEntregado(p)}>Entregado</button>
+                      </>}
+                      {col.k==='entregado' && <>
+                        <button className="btn btn-s btn-mini" onClick={()=>moverEstado(p,'listo')}>Listo</button>
+                        <button className="btn btn-s btn-mini" onClick={()=>setVer(p)}>Ver</button>
+                      </>}
                     </div>
                   </div>
                 );
@@ -1348,6 +1432,7 @@ function TabFlujo({pedidos, setPedidos, clientes, productos, temas, cobrarYEntre
           );
         })}
       </div>
+      {ver && <ModalDetallePedido pedido={ver} clientes={clientes} productos={productos} temas={temas} onCerrar={()=>setVer(null)} onAbono={(monto,metodo)=>registrarAbono(ver, monto, metodo)}/>}
     </div>
   );
 }
@@ -2923,7 +3008,7 @@ function ReportePendientes({pedidos, productos, temas, clientes}){
 
   const nomTema = id => (temas.find(t=>t.id===id)||{}).nombre || 'Sin tema';
   const nomCliente = p => p.destino==='stock' ? 'Producción para stock' : (clientes.find(c=>c.id===p.clienteId)?.nombre || p.clienteNombre || 'Cliente');
-  const listo = p => p.items.every(i=>i.tBastidor && i.tImagen);
+  const listo = p => p.items.every(i=>i.tBastidor && i.tImagen && i.tArmado);
 
   const aplicarRapido = tipo => {
     setRapido(tipo);
@@ -2959,7 +3044,7 @@ function ReportePendientes({pedidos, productos, temas, clientes}){
   const porProducto = {};
   filtrados.forEach(p=>{
     p.items.forEach(i=>{
-      if(i.tBastidor && i.tImagen) return; // esta pieza ya está lista
+      if(i.tBastidor && i.tImagen && i.tArmado) return; // esta pieza ya está lista
       if(!porProducto[i.prodId]) porProducto[i.prodId] = {piezas:0, pedidos:new Set()};
       porProducto[i.prodId].piezas++;
       porProducto[i.prodId].pedidos.add(p.id);
@@ -2977,13 +3062,14 @@ function ReportePendientes({pedidos, productos, temas, clientes}){
     const grupos = {};
     p.items.forEach(i=>{ (grupos[i.prodId] = grupos[i.prodId]||[]).push(i); });
     Object.entries(grupos).forEach(([prodId, items])=>{
-      const pend = items.filter(i=>!(i.tBastidor && i.tImagen));
+      const pend = items.filter(i=>!(i.tBastidor && i.tImagen && i.tArmado));
       if(pend.length===0) return;
       detalle.push({
         pedido:p, prod: prodDe(prodId, productos),
         cantidadPend: pend.length, totalGrupo: items.length,
         bastidorOk: items.filter(i=>i.tBastidor).length,
         imagenOk: items.filter(i=>i.tImagen).length,
+        armadoOk: items.filter(i=>i.tArmado).length,
         temasTxt: [...new Set(items.map(i=>nomTema(i.temaId)))].join(', ')
       });
     });
@@ -3064,7 +3150,7 @@ function ReportePendientes({pedidos, productos, temas, clientes}){
                     {d.temasTxt && <div style={{fontSize:11, color:'var(--gris-5)'}}>{d.temasTxt}</div>}
                   </td>
                   <td className="td-num" style={{fontWeight:700}}>{d.cantidadPend}</td>
-                  <td><span className="tag tag-gris">Bastidor {d.bastidorOk}/{d.totalGrupo} · Imagen {d.imagenOk}/{d.totalGrupo}</span></td>
+                  <td><span className="tag tag-gris">Bastidor {d.bastidorOk}/{d.totalGrupo} · Imagen {d.imagenOk}/{d.totalGrupo} · Armado {d.armadoOk}/{d.totalGrupo}</span></td>
                 </tr>
               );
             })}
@@ -3453,7 +3539,7 @@ function App(){
         pagos: p.pagos, // se conservan pagos históricos
       }));
       avisar('Pedido <b>#'+edit.folio+'</b> actualizado');
-      setTab('flujo');
+      setTab(edit.estado==='produccion' ? 'flujo' : 'pedidos');
       return;
     }
     const {data:n, error} = await sb.rpc('siguiente_folio', {p_nombre:'tienda'});
@@ -3472,7 +3558,7 @@ function App(){
     const items = [];
     w.items.forEach(i=>{
       for(let k=0; k<Math.max(1, i.cantidad); k++){
-        items.push({id:uid(), prodId:i.prodId, temaId:'', imagen:i.imagen, tBastidor:false, tImagen:false,
+        items.push({id:uid(), prodId:i.prodId, temaId:'', imagen:i.imagen, tBastidor:false, tImagen:false, tArmado:false,
                     detalle:i.descripcion + (i.cantidad>1 ? ' ('+(k+1)+' de '+i.cantidad+')' : '')});
       }
     });
@@ -3618,7 +3704,8 @@ function App(){
   );
 
   const misModulos = MODULOS.filter(m=>usuario.modulos.includes(m.id));
-  const pendientes = pedidos.filter(p=>p.estado!=='entregado' && diasPara(p.entrega)<=0).length;
+  const pendientes = pedidos.filter(p=>p.estado==='produccion' && diasPara(p.entrega)<=0).length;
+  const listosCount = pedidos.filter(p=>p.estado==='listo').length;
 
   return (
     <div className="shell">
@@ -3636,6 +3723,7 @@ function App(){
             {m.nombre}
             {m.id==='flujo'   && pendientes>0        && <span className="nb-badge">{pendientes}</span>}
             {m.id==='aprobar' && webPedidos.length>0 && <span className="nb-badge">{webPedidos.length}</span>}
+            {m.id==='pedidos' && listosCount>0       && <span className="nb-badge">{listosCount}</span>}
           </button>
         ))}
       </div>
@@ -3643,7 +3731,8 @@ function App(){
         {tab==='hoy'        && <TabHoy pedidos={pedidos} ventas={ventas} gastos={gastos} clientes={clientes} productos={productos} ir={setTab}/>}
         {tab==='pedido'     && <TabPedido key={editar?editar.id:'nuevo'} productos={productos} materiales={materiales} temas={temas} crearTema={crearTema} clientes={clientes} setClientes={setClientes} crearPedido={crearPedido} editar={editar} setEditar={setEditar} avisar={avisar}/>}
         {tab==='aprobar'    && <TabAprobar webPedidos={webPedidos} cargandoWeb={cargandoWeb} recargarWeb={recargarWeb} aprobarWeb={aprobarWeb} rechazarWeb={rechazarWeb} avisar={avisar}/>}
-        {tab==='flujo'      && <TabFlujo pedidos={pedidos} setPedidos={setPedidos} clientes={clientes} productos={productos} temas={temas} cobrarYEntregar={cobrarYEntregar} terminarStock={terminarStock} editarPedido={editarPedido} avisar={avisar}/>}
+        {tab==='flujo'      && <TabFlujo pedidos={pedidos} setPedidos={setPedidos} clientes={clientes} productos={productos} temas={temas} editarPedido={editarPedido} avisar={avisar}/>}
+        {tab==='pedidos'    && <TabPedidosKanban pedidos={pedidos} setPedidos={setPedidos} clientes={clientes} productos={productos} temas={temas} cobrarYEntregar={cobrarYEntregar} terminarStock={terminarStock} editarPedido={editarPedido} avisar={avisar}/>}
         {tab==='ventas'     && <TabVentas pedidos={pedidos} setPedidos={setPedidos} clientes={clientes} productos={productos} temas={temas} ventas={ventas} avisar={avisar}/>}
         {tab==='pos'        && <TabPos stock={stock} productos={productos} temas={temas} ventas={ventas} metodos={metodos} cajas={cajas} usuario={usuario} usuarios={usuarios} abrirCaja={abrirCaja} cerrarCaja={cerrarCaja} venderStock={venderStock} avisar={avisar}/>}
         {tab==='inventario' && <TabInventario stock={stock} setStock={setStock} productos={productos} temas={temas} crearTema={crearTema} ir={setTab}/>}
