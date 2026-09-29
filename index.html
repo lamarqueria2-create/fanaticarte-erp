@@ -177,9 +177,10 @@
   .flujo-info-card.urgente .flujo-dias-esquina{background:var(--rojo-suave);color:var(--rojo)}
   .flujo-info-card.hoy .flujo-dias-esquina{background:#FFF6DD;color:#8A6D00}
   .flujo-img-card{background:var(--blanco);border:1px solid var(--gris-2);border-radius:var(--radio);padding:14px;box-shadow:var(--sombra);display:flex;flex-direction:column;gap:12px}
-  .flujo-img-block{background:var(--gris-1);border:1px solid var(--gris-2);border-radius:8px;padding:10px;position:relative}
+  .flujo-img-block{background:var(--gris-1);border:1px solid var(--gris-2);border-radius:8px;padding:10px;position:relative;text-align:center}
   .flujo-num-badge{position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:50%;background:var(--negro);color:var(--amarillo);font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;z-index:2}
-  .flujo-print-img{width:100%;max-height:380px;object-fit:contain;cursor:pointer;display:block;border-radius:6px}
+  .flujo-print-img{width:50%;max-height:190px;object-fit:contain;cursor:pointer;display:block;border-radius:6px;margin:0 auto;transition:opacity .15s}
+  .flujo-print-img.hecha{opacity:.35}
   .flujo-print-ph{color:var(--gris-5);font-size:12px;padding:30px;text-align:center}
   .flujo-hint{font-size:10.5px;color:var(--gris-5);margin-top:6px;text-align:center}
   .chk-block{width:100%;margin-top:8px;padding:8px;text-align:center}
@@ -1345,7 +1346,7 @@ function TabFlujo({pedidos, setPedidos, clientes, productos, temas, editarPedido
                 return (
                   <div key={i.id} className="flujo-img-block">
                     {multi && <div className="flujo-num-badge">{ix+1}</div>}
-                    <ImagenFlujo src={i.imagen} nombre={nombreArch} clase="flujo-print-img" clasePh="flujo-print-ph" textoVacio="Sin imagen para imprimir" esGrande/>
+                    <ImagenFlujo src={i.imagen} nombre={nombreArch} clase={'flujo-print-img'+(i.tImagen?' hecha':'')} clasePh="flujo-print-ph" textoVacio="Sin imagen para imprimir" esGrande/>
                     <button className={'chk chk-block'+(i.tImagen?' on':'')} onClick={()=>toggleTarea(p.id, i.id, 'tImagen')}>{i.tImagen?'✓ Imagen lista':'Marcar imagen lista'}</button>
                     <div className="flujo-hint">Clic: abrir en pestaña nueva · Clic derecho: descargar</div>
                   </div>
