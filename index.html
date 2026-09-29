@@ -193,6 +193,14 @@
   .kanban-card.hoy{border-left:4px solid var(--amarillo)}
   .kanban-acciones{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .kanban-btn-entregado{background:var(--verde);color:var(--blanco);font-weight:700;padding:8px 14px;font-size:13px}
+  .kanban-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .kanban-dias{font-size:13px;font-weight:800;padding:5px 11px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+  .kanban-dias-rojo{background:var(--rojo-suave);color:var(--rojo)}
+  .kanban-dias-amarillo{background:#FFF6DD;color:#8A6D00}
+  .kanban-dias-verde{background:var(--verde-suave);color:var(--verde)}
+  .kanban-thumbs{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0}
+  .kanban-thumb{width:42px;height:42px;border-radius:6px;object-fit:cover;background:var(--gris-2);border:1px solid var(--gris-2)}
+  .kanban-thumb-ph{width:42px;height:42px;border-radius:6px;background:var(--gris-2);color:var(--gris-5);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;text-align:center}
   @media (max-width:860px){ .kanban-cols{grid-template-columns:1fr} }
   .chk{font-size:11px;font-weight:700;padding:5px 9px;border-radius:6px;border:1.5px solid var(--gris-3);color:var(--gris-5);background:var(--blanco);text-transform:uppercase;letter-spacing:.03em}
   .chk.on{background:var(--negro);border-color:var(--negro);color:var(--amarillo)}
@@ -1374,6 +1382,9 @@ function TabPedidosKanban({pedidos, setPedidos, clientes, productos, temas, cobr
     {k:'listo',      t:'Pedidos listos'},
     {k:'entregado',  t:'Pedidos entregados'},
   ];
+  // Semáforo de entrega: rojo de 1 día a vencido, amarillo 2 días, verde 3+ días
+  const semColor = d => d<=1 ? 'rojo' : (d===2 ? 'amarillo' : 'verde');
+  const semTexto = d => d<0 ? Math.abs(d)+'d atrasado' : (d===0 ? 'Hoy' : 'En '+d+'d');
 
   return (
     <div>
@@ -1394,16 +1405,20 @@ function TabPedidosKanban({pedidos, setPedidos, clientes, productos, temas, cobr
                 const cls = col.k!=='entregado' ? (d<0?'urgente':(d===0?'hoy':'')) : '';
                 return (
                   <div key={p.id} className={'kanban-card '+cls}>
-                    <div>
-                      <span className="pc-folio">#{p.folio}</span>
-                      {p.destino==='stock' && <span className="tag tag-negro" style={{marginLeft:7}}>Stock</span>}
-                      {p.envio && <span className="tag tag-azul" style={{marginLeft:7}}>Envío</span>}
-                      <div className="pc-cliente">{nomCliente(p)}</div>
-                      <div className="pc-fecha">
-                        {col.k==='entregado'
-                          ? 'Entregado '+fFecha(p.fechaEntregado)
-                          : 'Entrega '+fFecha(p.entrega)+' '+(d<0?'· '+Math.abs(d)+'d atrasado':(d===0?'· hoy':'· en '+d+'d'))}
+                    <div className="kanban-top">
+                      <div>
+                        <span className="pc-folio">#{p.folio}</span>
+                        {p.destino==='stock' && <span className="tag tag-negro" style={{marginLeft:7}}>Stock</span>}
+                        {p.envio && <span className="tag tag-azul" style={{marginLeft:7}}>Envío</span>}
+                        <div className="pc-cliente">{nomCliente(p)}</div>
                       </div>
+                      {col.k!=='entregado' && <span className={'kanban-dias kanban-dias-'+semColor(d)}>{semTexto(d)}</span>}
+                    </div>
+                    {p.items.length>0 && <div className="kanban-thumbs">
+                      {p.items.map(i=><Miniatura key={i.id} src={i.imagen} clase="kanban-thumb" claseVacio="kanban-thumb-ph" textoVacio="Sin img"/>)}
+                    </div>}
+                    <div>
+                      <div className="pc-fecha">{col.k==='entregado' ? 'Entregado '+fFecha(p.fechaEntregado) : 'Entrega '+fFecha(p.entrega)}</div>
                       {p.destino==='cliente' && <div style={{fontSize:12.5, color:'var(--gris-7)', marginTop:4}}>
                         Total {dinero(p.total)}{saldoDe(p)>0 ? ' · saldo '+dinero(saldoDe(p)) : ' · saldado'}
                       </div>}
